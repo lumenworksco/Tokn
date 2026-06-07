@@ -9,17 +9,95 @@ struct UsageView: View {
     @State private var showSettings = false
 
     var body: some View {
+        Group {
+            if showSettings {
+                SettingsPanel(appModel: appModel, showSettings: $showSettings)
+            } else {
+                mainView
+            }
+        }
+        .background(bgColor)
+        .frame(width: 320)
+        .onReceive(NotificationCenter.default.publisher(for: NSPopover.didCloseNotification)) { _ in
+            showSettings = false
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignKeyNotification)) { _ in
+            showSettings = false
+        }
+    }
+
+    private var mainView: some View {
         VStack(spacing: 0) {
             header
             Rectangle().fill(divider).frame(height: 1)
+            if appModel.updateChecker.availableVersion != nil {
+                updateBanner
+                Rectangle().fill(divider).frame(height: 1)
+            }
             content
             Rectangle().fill(divider).frame(height: 1)
             footer
         }
-        .background(bgColor)
-        .frame(width: 320)
-        .sheet(isPresented: $showSettings) {
-            SettingsSheet(appModel: appModel)
+    }
+
+    private var updateBanner: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "arrow.down.circle.fill")
+                .foregroundStyle(Color(red: 0.55, green: 0.36, blue: 0.96))
+                .font(.system(size: 15))
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Update available")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.white)
+                if let ver = appModel.updateChecker.availableVersion {
+                    Text("v\(ver) is ready to install")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Color(white: 0.5))
+                }
+            }
+            Spacer()
+            updateActionView
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(Color(red: 0.55, green: 0.36, blue: 0.96).opacity(0.10))
+    }
+
+    @ViewBuilder
+    private var updateActionView: some View {
+        switch appModel.autoUpdater.phase {
+        case .idle:
+            Button("Update") {
+                if let url = appModel.updateChecker.downloadURL {
+                    appModel.autoUpdater.startUpdate(from: url)
+                }
+            }
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(Color(red: 0.55, green: 0.36, blue: 0.96))
+            .buttonStyle(.plain)
+        case .downloading(let p):
+            HStack(spacing: 6) {
+                ProgressView(value: p)
+                    .progressViewStyle(.linear)
+                    .frame(width: 60)
+                    .tint(Color(red: 0.55, green: 0.36, blue: 0.96))
+                Text("\(Int(p * 100))%")
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(Color(white: 0.5))
+            }
+        case .installing:
+            HStack(spacing: 5) {
+                ProgressView().controlSize(.mini)
+                Text("Installing…")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color(white: 0.5))
+            }
+        case .failed(let msg):
+            Button("Retry") { appModel.autoUpdater.reset() }
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.orange)
+                .buttonStyle(.plain)
+                .help(msg)
         }
     }
 
@@ -186,10 +264,10 @@ private struct StatusBadge: View {
     }
 }
 
-// MARK: - SettingsSheet (unchanged from before)
-struct SettingsSheet: View {
+// MARK: - SettingsPanel (inline, no sheet)
+private struct SettingsPanel: View {
     let appModel: AppModel
-    @Environment(\.dismiss) private var dismiss
+    @Binding var showSettings: Bool
     @State private var selectedInterval: TimeInterval = 60
     @State private var showClearConfirm = false
     @State private var clearError: String?
@@ -202,64 +280,95 @@ struct SettingsSheet: View {
     ]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Settings")
-                .font(.headline)
-
-            Divider()
-
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Refresh interval")
-                    .font(.subheadline.weight(.medium))
-                Picker("", selection: $selectedInterval) {
-                    ForEach(intervals, id: \.value) { item in
-                        Text(item.label).tag(item.value)
-                    }
+        VStack(spacing: 0) {
+            // Header
+            HStack {
+                Button {
+                    showSettings = false
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Color(white: 0.6))
                 }
-                .pickerStyle(.menu)
-                .labelsHidden()
+                .buttonStyle(.plain)
+                Text("Settings")
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(.white)
+                Spacer()
             }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 18)
+            .background(bgColor)
 
-            Divider()
+            Rectangle().fill(divider).frame(height: 1)
 
-            if let error = clearError {
-                Label(error, systemImage: "exclamationmark.triangle.fill")
-                    .font(.caption)
-                    .foregroundStyle(.red)
-            }
-
-            Button(role: .destructive) {
-                showClearConfirm = true
-            } label: {
-                Label("Remove session key", systemImage: "trash")
-            }
-            .confirmationDialog(
-                "Remove session key?",
-                isPresented: $showClearConfirm,
-                titleVisibility: .visible
-            ) {
-                Button("Remove", role: .destructive) {
-                    do {
-                        try appModel.clearSessionKey()
-                        dismiss()
-                    } catch {
-                        clearError = error.localizedDescription
+            // Body
+            VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Refresh Interval")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Color(white: 0.55))
+                        .textCase(.uppercase)
+                    Picker("", selection: $selectedInterval) {
+                        ForEach(intervals, id: \.value) { item in
+                            Text(item.label).tag(item.value)
+                        }
                     }
+                    .pickerStyle(.menu)
+                    .labelsHidden()
                 }
-            } message: {
-                Text("You will need to re-enter your session key to use Tokn.")
+
+                Rectangle().fill(divider).frame(height: 1)
+
+                if let error = clearError {
+                    Label(error, systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
+
+                Button(role: .destructive) {
+                    showClearConfirm = true
+                } label: {
+                    Label("Remove Session Key", systemImage: "trash")
+                        .font(.system(size: 14))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Color(red: 1, green: 0.27, blue: 0.23))
+                .confirmationDialog(
+                    "Remove session key?",
+                    isPresented: $showClearConfirm,
+                    titleVisibility: .visible
+                ) {
+                    Button("Remove", role: .destructive) {
+                        do {
+                            try appModel.clearSessionKey()
+                            showSettings = false
+                        } catch {
+                            clearError = error.localizedDescription
+                        }
+                    }
+                } message: {
+                    Text("You will need to re-enter your session key to use Tokn.")
+                }
             }
+            .padding(20)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(bgColor)
 
-            Spacer()
+            Rectangle().fill(divider).frame(height: 1)
 
+            // Footer
             HStack {
                 Spacer()
-                Button("Done") { dismiss() }
-                    .buttonStyle(.borderedProminent)
+                Button("Quit") { NSApplication.shared.terminate(nil) }
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(.white)
+                    .buttonStyle(.plain)
             }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 18)
+            .background(bgColor)
         }
-        .padding(20)
-        .frame(width: 280, height: 260)
         .onAppear { selectedInterval = appModel.settings.refreshInterval }
         .onChange(of: selectedInterval) {
             appModel.settings.setRefreshInterval(selectedInterval)

@@ -21,6 +21,8 @@ final class AppModel {
     private let keychain = KeychainRepository()
     private let settingsRepo = SettingsRepository()
     private let usageService = UsageService()
+    let updateChecker = UpdateChecker()
+    let autoUpdater = AutoUpdater()
 
     private var refreshTask: Task<Void, Never>?
 
@@ -32,6 +34,7 @@ final class AppModel {
             Task { await refresh(force: true) }
             startRefreshLoop()
         }
+        updateChecker.check()
     }
 
     func refresh(force: Bool = false) async {

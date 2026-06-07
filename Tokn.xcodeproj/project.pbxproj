@@ -19,6 +19,8 @@
 		35BF700EBAFB495F9676BB26 /* SettingsRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5574C996024C401EA0E04147 /* SettingsRepository.swift */; };
 		F6DA61FBB39146948A5341D3 /* NetworkService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F64CAB9F33B44416AB1F2986 /* NetworkService.swift */; };
 		A03DC25AD9B740988AF243B4 /* UsageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 177B7BB9226A413A981A8792 /* UsageService.swift */; };
+		C1D4E8A23F7B4091BE2D5A67 /* UpdateChecker.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8F20D7E5C3A47E9A14F6C02 /* UpdateChecker.swift */; };
+		9E3A71F4D2C6408AB53F1E88 /* AutoUpdater.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D7B9C1A6E2F4D35A8C07F53 /* AutoUpdater.swift */; };
 		525AF976226544C1895C59FB /* MenuBarLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB877FE419A540B1B7D9894F /* MenuBarLabel.swift */; };
 		7A072B4315CE4E99908D65F0 /* SetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D69EAC664AA54E859EF81AF5 /* SetupView.swift */; };
 		968FBBE2DDC949859E7E50D2 /* UsageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B71E154383840CC8DC8943C /* UsageView.swift */; };
@@ -40,6 +42,8 @@
 		5574C996024C401EA0E04147 /* SettingsRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsRepository.swift; sourceTree = "<group>"; };
 		F64CAB9F33B44416AB1F2986 /* NetworkService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkService.swift; sourceTree = "<group>"; };
 		177B7BB9226A413A981A8792 /* UsageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageService.swift; sourceTree = "<group>"; };
+		B8F20D7E5C3A47E9A14F6C02 /* UpdateChecker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateChecker.swift; sourceTree = "<group>"; };
+		4D7B9C1A6E2F4D35A8C07F53 /* AutoUpdater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutoUpdater.swift; sourceTree = "<group>"; };
 		CB877FE419A540B1B7D9894F /* MenuBarLabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarLabel.swift; sourceTree = "<group>"; };
 		D69EAC664AA54E859EF81AF5 /* SetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupView.swift; sourceTree = "<group>"; };
 		7B71E154383840CC8DC8943C /* UsageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageView.swift; sourceTree = "<group>"; };
@@ -135,6 +139,8 @@
 			children = (
 				F64CAB9F33B44416AB1F2986 /* NetworkService.swift */,
 				177B7BB9226A413A981A8792 /* UsageService.swift */,
+				B8F20D7E5C3A47E9A14F6C02 /* UpdateChecker.swift */,
+				4D7B9C1A6E2F4D35A8C07F53 /* AutoUpdater.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -231,6 +237,8 @@
 				35BF700EBAFB495F9676BB26 /* SettingsRepository.swift in Sources */,
 				F6DA61FBB39146948A5341D3 /* NetworkService.swift in Sources */,
 				A03DC25AD9B740988AF243B4 /* UsageService.swift in Sources */,
+				C1D4E8A23F7B4091BE2D5A67 /* UpdateChecker.swift in Sources */,
+				9E3A71F4D2C6408AB53F1E88 /* AutoUpdater.swift in Sources */,
 				525AF976226544C1895C59FB /* MenuBarLabel.swift in Sources */,
 				7A072B4315CE4E99908D65F0 /* SetupView.swift in Sources */,
 				968FBBE2DDC949859E7E50D2 /* UsageView.swift in Sources */,
