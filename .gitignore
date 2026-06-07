@@ -1,0 +1,26 @@
+# Xcode
+*.xcuserstate
+*.xcuserdatad
+xcuserdata/
+DerivedData/
+*.pbxuser
+.DS_Store
+
+# Build artifacts
+build/
+*.o
+*.d
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+
+# Xcode project user data
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
