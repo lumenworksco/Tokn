@@ -24,17 +24,27 @@ final class KeychainRepository: Sendable {
     func save(_ value: String) throws {
         guard let data = value.data(using: .utf8) else { throw KeychainError.encodingFailed }
 
-        _ = try? delete()
-
-        let query: [String: Any] = [
+        let lookup: [String: Any] = [
             kSecClass as String:       kSecClassGenericPassword,
             kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
-            kSecValueData as String:   data
+            kSecAttrAccount as String: account
         ]
 
-        let status = SecItemAdd(query as CFDictionary, nil)
-        guard status == errSecSuccess else { throw KeychainError.saveFailed(status) }
+        let existing = SecItemCopyMatching(lookup as CFDictionary, nil)
+
+        if existing == errSecSuccess {
+            // Item exists — update in place (avoids auth failure from delete+add cycle)
+            let update: [String: Any] = [kSecValueData as String: data]
+            let status = SecItemUpdate(lookup as CFDictionary, update as CFDictionary)
+            guard status == errSecSuccess else { throw KeychainError.saveFailed(status) }
+        } else {
+            // No existing item — add with explicit accessibility
+            var add = lookup
+            add[kSecValueData as String]   = data
+            add[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlocked
+            let status = SecItemAdd(add as CFDictionary, nil)
+            guard status == errSecSuccess else { throw KeychainError.saveFailed(status) }
+        }
     }
 
     func retrieve() throws -> String {
