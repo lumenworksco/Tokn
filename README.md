@@ -2,51 +2,97 @@
 
 <img src="Tokn/Assets.xcassets/AppIcon.appiconset/icon_256x256.png" width="128" alt="Tokn icon" />
 
-A macOS menu bar app that shows your Claude.ai session usage at a glance — built from scratch so you know exactly what it does with your session key.
+Track your Claude.ai session and weekly usage from the macOS menu bar — built from scratch so you know exactly what it does with your session key.
 
-![macOS 14+](https://img.shields.io/badge/macOS-14%2B-blue)
-![Swift](https://img.shields.io/badge/Swift-5.0-orange)
-![License](https://img.shields.io/badge/license-MIT-green)
+[![macOS 14+](https://img.shields.io/badge/macOS-14%2B-blue?logo=apple)](https://github.com/lumenworksco/Tokn/releases)
+[![Swift](https://img.shields.io/badge/Swift-5.0-orange?logo=swift)](https://swift.org)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/lumenworksco/Tokn?color=blueviolet)](https://github.com/lumenworksco/Tokn/releases/latest)
+
+---
+
+## Download
+
+<div align="center">
+
+<a href="https://github.com/lumenworksco/Tokn/releases/latest">
+  <img src="https://img.shields.io/badge/Download_for_macOS-%23000000?style=for-the-badge&logo=apple&logoColor=white" alt="Download for macOS" height="48"/>
+</a>
+
+<br/>
+<sub>macOS 14.0 Sonoma or later &nbsp;·&nbsp; Apple Silicon &amp; Intel &nbsp;·&nbsp; Free &amp; open source</sub>
+
+</div>
+
+<br/>
+
+1. Download the `.dmg` from the [latest release](https://github.com/lumenworksco/Tokn/releases/latest)
+2. Open it and drag **Tokn** into the **Applications** folder
+3. Launch it — a coloured dot and percentage appear in your menu bar
+
+> **First launch:** macOS may show a security prompt. Right-click → **Open**, or go to **System Settings → Privacy & Security** and click **Open Anyway**.
+
+---
 
 ## What it shows
 
-- **Session (5h)** — usage within the current 5-hour rolling window, with time until reset
+- **Session (5h)** — usage within the current 5-hour rolling window, with exact time until reset
 - **Weekly (7d)** — usage across the current 7-day window
-- Color-coded status: green → orange (≥50%) → red (≥80%)
+- Colour-coded status: green (safe) → orange (≥50%) → red (≥80%)
+- Menu bar dot updates colour in real time so you can tell at a glance without opening the popover
 
-## Installation
-
-1. Download `Tokn-1.0.3.dmg` from the [latest release](../../releases/latest)
-2. Open the DMG and drag **Tokn** into **Applications**
-3. On first launch, right-click → **Open** once (macOS Gatekeeper prompt for unsigned apps — one-time only)
+---
 
 ## Setup
 
-1. Open [claude.ai](https://claude.ai) in your browser
-2. Open DevTools (⌘⌥I in Chrome/Safari)
+1. Open [claude.ai](https://claude.ai) in Chrome or Safari
+2. Open DevTools (`⌘⌥I`)
 3. Go to **Application → Cookies → `claude.ai`**
-4. Copy the value of the `sessionKey` cookie (starts with `sk-ant-`)
+4. Copy the value of the `sessionKey` cookie — it starts with `sk-ant-`
 5. Click the Tokn icon in your menu bar and paste it in
 
-Your session key is stored only in the macOS Keychain — never written to disk or sent anywhere other than `claude.ai`.
+Your session key is stored **only in the macOS Keychain** — never written to disk or sent anywhere other than `claude.ai`.
+
+---
+
+## Usage
+
+| Action | How |
+|--------|-----|
+| Open popover | Click the Tokn dot/percentage in your menu bar |
+| Refresh now | Click the **↻** button in the top-right of the popover |
+| Change refresh interval | **Settings** → Refresh interval |
+| Remove session key | **Settings** → Remove session key |
+| Quit | Click **Quit** in the popover footer |
+
+---
 
 ## Building from source
 
 Requires Xcode 16+ and macOS 14+.
 
 ```bash
-git clone https://github.com/iPwnds/Tokn.git
+git clone https://github.com/lumenworksco/Tokn.git
 cd Tokn
 open Tokn.xcodeproj
 ```
 
-Hit **Run** (⌘R) in Xcode. No dependencies, no package manager.
+Hit **⌘R** in Xcode. No dependencies, no package manager.
 
 Or from the command line:
 
 ```bash
-xcodebuild -project Tokn.xcodeproj -scheme Tokn -configuration Release build CODE_SIGN_IDENTITY="-"
+xcodebuild -project Tokn.xcodeproj -scheme Tokn -configuration Release \
+  CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO
 ```
+
+To regenerate the app icon at all sizes:
+
+```bash
+swift scripts/generate_icons.swift
+```
+
+---
 
 ## Architecture
 
@@ -59,8 +105,22 @@ xcodebuild -project Tokn.xcodeproj -scheme Tokn -configuration Release build COD
 | Network + Usage | `Tokn/Services/` |
 | UI | `Tokn/Views/` |
 
-The app hits two Claude API endpoints — `GET /api/organizations` (to resolve your org ID) and `GET /api/organizations/{id}/usage` (for the usage data). All source is plain Swift with no third-party dependencies, so the full behaviour is auditable in a few hundred lines.
+Two API endpoints are used — `GET /api/organizations` (resolves your org UUID on first run) and `GET /api/organizations/{id}/usage` (fetches the usage data). All source is plain Swift with zero third-party dependencies, so the full behaviour is auditable in a few hundred lines.
+
+---
+
+## Contributing
+
+Pull requests are welcome. For major changes please open an issue first to discuss the approach.
+
+1. Fork the repo
+2. Create a feature branch (`git checkout -b feature/my-feature`)
+3. Commit your changes (`git commit -m 'Add my feature'`)
+4. Push to the branch (`git push origin feature/my-feature`)
+5. Open a Pull Request
+
+---
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+[MIT](LICENSE) © 2026 lumenworksco

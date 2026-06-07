@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tokn — Claude usage in your macOS menu bar</title>
+  <meta name="description" content="Tokn shows your Claude.ai session and weekly usage right in the macOS menu bar. Free, open source, and your session key never leaves your Keychain." />
+  <meta property="og:title" content="Tokn — Claude usage in your macOS menu bar" />
+  <meta property="og:description" content="Track your Claude.ai session and weekly limits from the menu bar. Free & open source." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⏳</text></svg>">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #08080f;
+      --surface:  #0f0f1a;
+      --card:     #141420;
+      --border:   rgba(255,255,255,0.07);
+      --accent:   #8c5bf6;
+      --accent2:  #6d3de0;
+      --glow:     rgba(140,91,246,0.28);
+      --green:    #38ff6a;
+      --text:     #f2f2f7;
+      --text2:    #aeaebb;
+      --text3:    #5e5e70;
+      --radius:   14px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* ── Nav ── */
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 40px; height: 60px;
+      background: rgba(8,8,15,0.85);
+      backdrop-filter: blur(20px) saturate(180%);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-logo {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 17px; font-weight: 700; color: var(--text); text-decoration: none;
+    }
+    .nav-logo-icon {
+      width: 26px; height: 26px; border-radius: 7px;
+      background: linear-gradient(145deg, #8c5bf6, #4a1d96);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+    }
+    .nav-links { display: flex; align-items: center; gap: 24px; }
+    .nav-link {
+      color: var(--text2); text-decoration: none; font-size: 14px;
+      transition: color .2s;
+    }
+    .nav-link:hover { color: var(--text); }
+    .nav-btn {
+      display: flex; align-items: center; gap: 6px;
+      padding: 7px 16px; border-radius: 8px;
+      background: rgba(255,255,255,0.07); border: 1px solid var(--border);
+      color: var(--text); text-decoration: none; font-size: 13px;
+      transition: background .2s;
+    }
+    .nav-btn:hover { background: rgba(255,255,255,0.12); }
+
+    /* ── Hero ── */
+    .hero {
+      display: grid; grid-template-columns: 1fr 1fr;
+      align-items: center; gap: 60px;
+      max-width: 1080px; margin: 0 auto;
+      padding: 100px 40px 80px;
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 12px; border-radius: 100px;
+      background: rgba(140,91,246,0.12); border: 1px solid rgba(140,91,246,0.28);
+      color: var(--accent); font-size: 12px; font-weight: 500;
+      margin-bottom: 24px;
+    }
+    .hero-badge span {
+      width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+    @keyframes pulse-dot {
+      0%,100% { opacity:1; transform:scale(1); }
+      50%      { opacity:.5; transform:scale(.8); }
+    }
+    h1 {
+      font-size: clamp(36px, 5vw, 54px);
+      font-weight: 700; line-height: 1.1;
+      letter-spacing: -1.5px; margin-bottom: 20px;
+    }
+    h1 em { font-style: normal; color: var(--accent); }
+    .hero-sub {
+      font-size: 18px; color: var(--text2); line-height: 1.6;
+      max-width: 420px; margin-bottom: 40px;
+    }
+    .cta-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .btn-primary {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 14px 28px; border-radius: 12px;
+      background: var(--accent); color: #fff;
+      font-size: 16px; font-weight: 600; text-decoration: none;
+      box-shadow: 0 8px 32px var(--glow);
+      transition: transform .15s, box-shadow .15s, filter .15s;
+    }
+    .btn-primary:hover { transform: translateY(-2px); filter: brightness(1.1); box-shadow: 0 12px 40px var(--glow); }
+    .btn-primary:active { transform: translateY(0); }
+    .cta-meta { font-size: 13px; color: var(--text3); }
+
+    /* ── App Mockup ── */
+    .hero-visual {
+      display: flex; flex-direction: column; align-items: center;
+      position: relative;
+    }
+    .hero-visual::before {
+      content: '';
+      position: absolute;
+      width: 320px; height: 320px;
+      background: radial-gradient(circle, rgba(140,91,246,0.14) 0%, transparent 70%);
+      top: 50%; left: 50%; transform: translate(-50%, -50%);
+      pointer-events: none; z-index: 0;
+    }
+    .app-window {
+      display: flex; flex-direction: column; align-items: center;
+      position: relative; z-index: 1;
+      animation: float 4s ease-in-out infinite;
+    }
+    @keyframes float {
+      0%,100% { transform: translateY(0px); }
+      50%      { transform: translateY(-10px); }
+    }
+    .menubar-strip {
+      width: 310px; height: 34px;
+      background: #16162a;
+      border-radius: 14px 14px 0 0;
+      border: 1px solid rgba(255,255,255,0.1); border-bottom: none;
+      display: flex; align-items: center; justify-content: flex-end;
+      padding: 0 14px; gap: 12px;
+      font-size: 12px; color: rgba(255,255,255,0.4);
+    }
+    .mb-tokn {
+      display: flex; align-items: center; gap: 5px;
+      background: rgba(255,255,255,0.1); padding: 3px 10px;
+      border-radius: 6px; color: rgba(255,255,255,0.9); font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+    .mb-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 6px var(--green);
+    }
+    .popup {
+      width: 310px;
+      background: #10101c;
+      border-radius: 0 0 18px 18px;
+      border: 1px solid rgba(255,255,255,0.08); border-top: none;
+      box-shadow:
+        0 60px 120px rgba(0,0,0,0.9),
+        0 24px 48px rgba(0,0,0,0.5),
+        0 0 80px rgba(140,91,246,0.07);
+      overflow: hidden;
+    }
+    .popup-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 18px 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+    }
+    .popup-title { font-size: 16px; font-weight: 700; color: #fff; }
+    .popup-refresh { color: rgba(255,255,255,0.35); font-size: 14px; }
+    .popup-cards { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+    .pcard {
+      background: rgba(255,255,255,0.05);
+      border-radius: 11px; padding: 14px;
+    }
+    .pcard-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .pcard-label {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 13px; font-weight: 700; color: #fff;
+    }
+    .pcard-icon { color: var(--green); font-size: 13px; }
+    .pbadge {
+      display: flex; align-items: center; gap: 4px;
+      font-size: 11px; font-weight: 600; color: var(--green);
+      background: rgba(56,255,106,0.12);
+      padding: 3px 8px; border-radius: 100px;
+    }
+    .pct { font-size: 36px; font-weight: 700; color: var(--green); line-height: 1.1; margin-bottom: 8px; }
+    .pbar-track {
+      height: 7px; border-radius: 100px;
+      background: rgba(255,255,255,0.08); overflow: hidden; margin-bottom: 7px;
+    }
+    .pbar-fill {
+      height: 100%; border-radius: 100px; background: var(--green);
+    }
+    .preset { font-size: 11px; color: rgba(255,255,255,0.35); display: flex; align-items: center; gap: 4px; }
+    .popup-footer {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 18px 14px;
+      border-top: 1px solid rgba(255,255,255,0.07);
+      font-size: 13px; font-weight: 500; color: #fff;
+    }
+
+    /* ── Features ── */
+    .features {
+      max-width: 1080px; margin: 40px auto 0; padding: 80px 40px;
+    }
+    .section-header { text-align: center; margin-bottom: 56px; }
+    .section-header h2 { font-size: 36px; font-weight: 700; letter-spacing: -1px; margin-bottom: 12px; }
+    .section-header p  { font-size: 17px; color: var(--text2); }
+
+    .features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .feature-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 28px 24px;
+      transition: border-color .2s, transform .2s;
+    }
+    .feature-card:hover { border-color: rgba(140,91,246,0.25); transform: translateY(-3px); }
+    .feature-icon {
+      width: 44px; height: 44px; border-radius: 12px;
+      background: rgba(140,91,246,0.12); border: 1px solid rgba(140,91,246,0.2);
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 16px; font-size: 20px;
+    }
+    .feature-card h3 { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+    .feature-card p  { font-size: 14px; color: var(--text2); line-height: 1.55; }
+
+    /* ── Download ── */
+    .download {
+      max-width: 600px; margin: 0 auto; padding: 80px 40px 100px;
+      text-align: center;
+    }
+    .download h2 { font-size: 40px; font-weight: 700; letter-spacing: -1px; margin-bottom: 16px; }
+    .download p  { font-size: 17px; color: var(--text2); margin-bottom: 36px; }
+    .btn-download-lg {
+      display: inline-flex; align-items: center; gap: 10px;
+      padding: 18px 40px; border-radius: 14px;
+      background: var(--accent); color: #fff;
+      font-size: 18px; font-weight: 600; text-decoration: none;
+      box-shadow: 0 12px 40px var(--glow);
+      transition: transform .15s, filter .15s; margin-bottom: 20px;
+    }
+    .btn-download-lg:hover { transform: translateY(-2px); filter: brightness(1.08); }
+    .download-meta { font-size: 13px; color: var(--text3); }
+    .download-meta a { color: var(--text2); text-decoration: underline; }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 32px 40px;
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 13px; color: var(--text3);
+    }
+    footer a { color: var(--text2); text-decoration: none; }
+    footer a:hover { color: var(--text); }
+    .footer-links { display: flex; gap: 24px; }
+
+    /* ── Scroll reveal ── */
+    .reveal { opacity: 0; transform: translateY(24px); transition: opacity .55s ease, transform .55s ease; }
+    .reveal.visible { opacity: 1; transform: none; }
+
+    /* ── Responsive ── */
+    @media (max-width: 800px) {
+      .hero { grid-template-columns: 1fr; text-align: center; padding: 60px 24px 40px; }
+      .hero-sub, .cta-row { max-width: 100%; justify-content: center; }
+      .hero-visual { display: none; }
+      .features-grid { grid-template-columns: 1fr 1fr; }
+      nav { padding: 0 20px; }
+      .nav-links .nav-link { display: none; }
+    }
+    @media (max-width: 540px) {
+      .features-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav>
+  <a href="/" class="nav-logo">
+    <div class="nav-logo-icon">T</div>
+    Tokn
+  </a>
+  <div class="nav-links">
+    <a href="#features" class="nav-link">Features</a>
+    <a href="#download" class="nav-link">Download</a>
+    <a href="https://github.com/lumenworksco/Tokn" class="nav-btn" target="_blank">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
+      </svg>
+      View on GitHub
+    </a>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="hero-text">
+    <div class="hero-badge"><span></span> Free &amp; Open Source</div>
+    <h1>Your Claude limits,<br><em>always visible.</em></h1>
+    <p class="hero-sub">Tokn sits in your macOS menu bar and shows your Claude.ai session and weekly usage at a glance. No telemetry — your session key lives only in your Keychain.</p>
+    <div class="cta-row">
+      <a href="https://github.com/lumenworksco/Tokn/releases/latest" class="btn-primary">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        Download for Mac
+      </a>
+      <span class="cta-meta">macOS 14+ &nbsp;·&nbsp; Free</span>
+    </div>
+  </div>
+
+  <div class="hero-visual">
+    <div class="app-window">
+      <div class="menubar-strip">
+        <div class="mb-tokn">
+          <div class="mb-dot" id="mb-dot"></div>
+          <span id="mb-pct">68%</span>
+        </div>
+        <div style="opacity:.3">●●●</div>
+      </div>
+      <div class="popup">
+        <div class="popup-header">
+          <span class="popup-title">Tokn</span>
+          <span class="popup-refresh">↻</span>
+        </div>
+        <div class="popup-cards">
+          <div class="pcard">
+            <div class="pcard-header">
+              <div class="pcard-label">
+                <span class="pcard-icon">⏱</span> 5-Hour Session
+              </div>
+              <div class="pbadge">✓ Safe</div>
+            </div>
+            <div class="pct" id="session-pct">68%</div>
+            <div class="pbar-track"><div class="pbar-fill" id="session-bar" style="width:68%"></div></div>
+            <div class="preset">🕐 Resets in 1 hour 44 minutes</div>
+          </div>
+          <div class="pcard">
+            <div class="pcard-header">
+              <div class="pcard-label">
+                <span class="pcard-icon">📅</span> Weekly Usage
+              </div>
+              <div class="pbadge">✓ Safe</div>
+            </div>
+            <div class="pct">37%</div>
+            <div class="pbar-track"><div class="pbar-fill" style="width:37%"></div></div>
+            <div class="preset">🕐 Resets in 3 days 23 hours</div>
+          </div>
+        </div>
+        <div class="popup-footer">
+          <span>Settings</span>
+          <span>Quit</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Features -->
+<section class="features" id="features">
+  <div class="section-header reveal">
+    <h2>Built to be trusted</h2>
+    <p>Open source, zero dependencies, auditable in an afternoon.</p>
+  </div>
+  <div class="features-grid">
+    <div class="feature-card reveal">
+      <div class="feature-icon">📊</div>
+      <h3>Two limits at a glance</h3>
+      <p>Shows your 5-hour session and 7-day weekly usage side by side, with exact reset times — no need to open claude.ai.</p>
+    </div>
+    <div class="feature-card reveal">
+      <div class="feature-icon">🔒</div>
+      <h3>Keychain-only storage</h3>
+      <p>Your <code>sk-ant-...</code> session key is stored exclusively in the macOS Keychain. It is never written to disk or sent anywhere other than claude.ai.</p>
+    </div>
+    <div class="feature-card reveal">
+      <div class="feature-icon">🎨</div>
+      <h3>Colour-coded status</h3>
+      <p>The menu bar dot and usage bars shift from green to orange (≥50%) to red (≥80%) so you can tell at a glance how much runway you have left.</p>
+    </div>
+    <div class="feature-card reveal">
+      <div class="feature-icon">🔍</div>
+      <h3>Fully auditable</h3>
+      <p>16 Swift files, zero third-party dependencies. The entire network layer fits in one file — read exactly what requests are made and what headers are sent.</p>
+    </div>
+    <div class="feature-card reveal">
+      <div class="feature-icon">⚡</div>
+      <h3>Auto-refresh</h3>
+      <p>Polls the API on a configurable interval (1–10 minutes). Starts automatically at login and restarts the loop whenever you change the interval.</p>
+    </div>
+    <div class="feature-card reveal">
+      <div class="feature-icon">🚫</div>
+      <h3>Zero telemetry</h3>
+      <p>No analytics, no crash reporters, no update pings. The only outbound traffic is the API calls to claude.ai using your own session key.</p>
+    </div>
+  </div>
+</section>
+
+<!-- Download -->
+<section class="download" id="download">
+  <div class="reveal">
+    <h2>Always know where you stand.</h2>
+    <p>Download Tokn for free and have your usage visible in seconds.</p>
+    <br>
+    <a href="https://github.com/lumenworksco/Tokn/releases/latest" class="btn-download-lg">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+      Download Tokn
+    </a>
+    <br>
+    <p class="download-meta">
+      macOS 14.0 Sonoma or later &nbsp;·&nbsp; Apple Silicon &amp; Intel &nbsp;·&nbsp;
+      <a href="https://github.com/lumenworksco/Tokn" target="_blank">View source on GitHub</a>
+    </p>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer>
+  <span>© 2026 lumenworksco</span>
+  <div class="footer-links">
+    <a href="https://github.com/lumenworksco/Tokn" target="_blank">GitHub</a>
+    <a href="https://github.com/lumenworksco/Tokn/blob/main/LICENSE" target="_blank">MIT License</a>
+    <a href="https://github.com/lumenworksco/Tokn/releases" target="_blank">Releases</a>
+  </div>
+</footer>
+
+<script>
+  // Scroll reveal
+  const observer = new IntersectionObserver(
+    entries => entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); }),
+    { threshold: 0.1 }
+  );
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+  // Animate session percentage in the mockup
+  (function() {
+    const pctEl  = document.getElementById('session-pct');
+    const barEl  = document.getElementById('session-bar');
+    const mbPct  = document.getElementById('mb-pct');
+    const mbDot  = document.getElementById('mb-dot');
+
+    const START = 68, END = 95;
+    const DURATION = 8000;
+    let t0 = null;
+
+    function tick(ts) {
+      if (!t0) t0 = ts;
+      const p   = Math.min((ts - t0) / DURATION, 1);
+      const val = Math.round(START + (END - START) * p);
+      const pct = val + '%';
+
+      pctEl.textContent  = pct;
+      mbPct.textContent  = pct;
+      barEl.style.width  = pct;
+
+      // Colour shifts at 80%
+      const color = val >= 80
+        ? (val >= 95 ? '#ff4540' : '#ff9f0a')
+        : '#38ff6a';
+      pctEl.style.color     = color;
+      barEl.style.background = color;
+      mbDot.style.background = color;
+      mbDot.style.boxShadow  = `0 0 6px ${color}`;
+
+      if (p < 1) requestAnimationFrame(tick);
+      else { setTimeout(() => { t0 = null; requestAnimationFrame(tick); }, 2000); }
+    }
+
+    requestAnimationFrame(tick);
+  })();
+</script>
+
+</body>
+</html>
