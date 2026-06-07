@@ -1,161 +1,193 @@
 import SwiftUI
 
+private let bgColor    = Color(white: 0.10)
+private let cardColor  = Color(white: 0.14)
+private let divider    = Color(white: 1.0).opacity(0.08)
+
 struct UsageView: View {
     let appModel: AppModel
-
     @State private var showSettings = false
 
     var body: some View {
         VStack(spacing: 0) {
             header
-            Divider()
-            if appModel.isLoading {
-                loadingRow
-            } else if let error = appModel.errorMessage {
-                errorRow(error)
-            } else if let data = appModel.usageData {
-                usageContent(data)
-            } else {
-                loadingRow
-            }
-            Divider()
+            Rectangle().fill(divider).frame(height: 1)
+            content
+            Rectangle().fill(divider).frame(height: 1)
             footer
         }
-        .frame(width: 300)
+        .background(bgColor)
+        .frame(width: 320)
         .sheet(isPresented: $showSettings) {
             SettingsSheet(appModel: appModel)
         }
     }
 
+    // MARK: Header
     private var header: some View {
-        HStack {
+        HStack(alignment: .center) {
             Text("Tokn")
-                .font(.headline)
+                .font(.system(size: 22, weight: .bold))
+                .foregroundStyle(.white)
             Spacer()
             Button {
                 Task { await appModel.refresh(force: true) }
             } label: {
                 Image(systemName: "arrow.clockwise")
-                    .font(.system(size: 12))
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(Color(white: 0.6))
             }
             .buttonStyle(.plain)
             .disabled(appModel.isLoading)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 18)
+        .background(bgColor)
     }
 
-    private var loadingRow: some View {
-        HStack {
-            ProgressView()
-                .controlSize(.small)
-            Text("Loading…")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+    // MARK: Content
+    @ViewBuilder
+    private var content: some View {
+        if appModel.isLoading {
+            loadingView
+        } else if let error = appModel.errorMessage {
+            errorView(error)
+        } else if let data = appModel.usageData {
+            VStack(spacing: 12) {
+                UsageCard(icon: "timer", title: "5-Hour Session", limit: data.sessionUsage)
+                UsageCard(icon: "calendar", title: "Weekly Usage",   limit: data.weeklyUsage)
+            }
+            .padding(16)
+            .background(bgColor)
+        } else {
+            loadingView
         }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func errorRow(_ message: String) -> some View {
-        HStack(alignment: .top, spacing: 8) {
+    private var loadingView: some View {
+        HStack(spacing: 10) {
+            ProgressView().controlSize(.small)
+            Text("Loading…")
+                .font(.system(size: 14))
+                .foregroundStyle(Color(white: 0.5))
+        }
+        .padding(28)
+        .frame(maxWidth: .infinity, alignment: .center)
+        .background(bgColor)
+    }
+
+    private func errorView(_ message: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .foregroundStyle(.orange)
-                .font(.system(size: 13))
+                .font(.system(size: 14))
             Text(message)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .font(.system(size: 13))
+                .foregroundStyle(Color(white: 0.6))
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(14)
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(bgColor)
     }
 
-    private func usageContent(_ data: UsageData) -> some View {
-        VStack(spacing: 2) {
-            UsageRow(
-                label: "Session",
-                sublabel: "5h window",
-                limit: data.sessionUsage
-            )
-            Divider().padding(.horizontal, 14)
-            UsageRow(
-                label: "Weekly",
-                sublabel: "7d window",
-                limit: data.weeklyUsage
-            )
-        }
-        .padding(.vertical, 4)
-    }
-
+    // MARK: Footer
     private var footer: some View {
         HStack {
-            if let data = appModel.usageData {
-                Text("Updated \(data.freshnessDescription)")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-            }
-            Spacer()
             Button("Settings") { showSettings = true }
-                .font(.caption)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(.white)
                 .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
-            Text("·")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
+            Spacer()
             Button("Quit") { NSApplication.shared.terminate(nil) }
-                .font(.caption)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(.white)
                 .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 18)
+        .background(bgColor)
     }
 }
 
-private struct UsageRow: View {
-    let label: String
-    let sublabel: String
+// MARK: - UsageCard
+private struct UsageCard: View {
+    let icon: String
+    let title: String
     let limit: UsageLimit
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 14) {
+            // Title row
             HStack {
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(label)
-                        .font(.subheadline.weight(.medium))
-                    Text(sublabel)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
+                Image(systemName: icon)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(limit.status.color)
+                Text(title)
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(.white)
                 Spacer()
-                VStack(alignment: .trailing, spacing: 1) {
-                    Text("\(Int(limit.utilization))%")
-                        .font(.subheadline.monospacedDigit().weight(.semibold))
-                        .foregroundStyle(limit.status.color)
-                    Text(limit.resetDescription)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
+                StatusBadge(status: limit.status)
             }
 
+            // Large percentage
+            Text("\(Int(limit.utilization))%")
+                .font(.system(size: 60, weight: .bold, design: .rounded))
+                .foregroundStyle(limit.status.color)
+                .monospacedDigit()
+
+            // Progress bar
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 3)
-                        .fill(Color.secondary.opacity(0.15))
-                        .frame(height: 6)
-                    RoundedRectangle(cornerRadius: 3)
+                    Capsule()
+                        .fill(Color(white: 1.0).opacity(0.10))
+                        .frame(height: 10)
+                    Capsule()
                         .fill(limit.status.color)
-                        .frame(width: geo.size.width * min(limit.utilization / 100, 1.0), height: 6)
-                        .animation(.easeInOut(duration: 0.3), value: limit.utilization)
+                        .frame(width: max(8, geo.size.width * min(limit.utilization / 100, 1.0)),
+                               height: 10)
+                        .animation(.easeInOut(duration: 0.4), value: limit.utilization)
                 }
             }
-            .frame(height: 6)
+            .frame(height: 10)
+
+            // Reset time
+            HStack(spacing: 5) {
+                Image(systemName: "clock")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Color(white: 0.45))
+                Text(limit.resetDescription)
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color(white: 0.45))
+            }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
+        .padding(18)
+        .background(cardColor)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
     }
 }
 
-private struct SettingsSheet: View {
+// MARK: - StatusBadge
+private struct StatusBadge: View {
+    let status: UsageStatus
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Image(systemName: status.icon)
+                .font(.system(size: 12, weight: .semibold))
+            Text(status.label)
+                .font(.system(size: 13, weight: .semibold))
+        }
+        .foregroundStyle(status.color)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(status.badgeBackground)
+        .clipShape(Capsule())
+    }
+}
+
+// MARK: - SettingsSheet (unchanged from before)
+struct SettingsSheet: View {
     let appModel: AppModel
     @Environment(\.dismiss) private var dismiss
     @State private var selectedInterval: TimeInterval = 60
@@ -163,9 +195,9 @@ private struct SettingsSheet: View {
     @State private var clearError: String?
 
     private let intervals: [(label: String, value: TimeInterval)] = [
-        ("1 minute",  60),
-        ("2 minutes", 120),
-        ("5 minutes", 300),
+        ("1 minute",   60),
+        ("2 minutes",  120),
+        ("5 minutes",  300),
         ("10 minutes", 600)
     ]
 

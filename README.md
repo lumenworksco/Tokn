@@ -16,7 +16,7 @@ A macOS menu bar app that shows your Claude.ai session usage at a glance — bui
 
 ## Installation
 
-1. Download `Tokn-1.0.2.dmg` from the [latest release](../../releases/latest)
+1. Download `Tokn-1.0.3.dmg` from the [latest release](../../releases/latest)
 2. Open the DMG and drag **Tokn** into **Applications**
 3. On first launch, right-click → **Open** once (macOS Gatekeeper prompt for unsigned apps — one-time only)
 
