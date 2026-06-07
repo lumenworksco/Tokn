@@ -40,6 +40,7 @@ Track your Claude.ai session and weekly usage from the macOS menu bar — built 
 - **Weekly (7d)** — usage across the current 7-day window
 - Colour-coded status: green (safe) → orange (≥50%) → red (≥80%)
 - Menu bar dot updates colour in real time so you can tell at a glance without opening the popover
+- **Auto-updates** — checks for new versions on launch and installs them in one click
 
 ---
 
@@ -102,7 +103,7 @@ swift scripts/generate_icons.swift
 | App state | `Tokn/App/AppModel.swift` |
 | Models | `Tokn/Models/` |
 | Keychain + Settings | `Tokn/Repositories/` |
-| Network + Usage | `Tokn/Services/` |
+| Network + Usage + Updates | `Tokn/Services/` |
 | UI | `Tokn/Views/` |
 
 Two API endpoints are used — `GET /api/organizations` (resolves your org UUID on first run) and `GET /api/organizations/{id}/usage` (fetches the usage data). All source is plain Swift with zero third-party dependencies, so the full behaviour is auditable in a few hundred lines.
