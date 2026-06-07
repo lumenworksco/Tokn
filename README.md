@@ -1,5 +1,7 @@
 # Tokn
 
+<img src="Tokn/Assets.xcassets/AppIcon.appiconset/icon_256x256.png" width="128" alt="Tokn icon" />
+
 A macOS menu bar app that shows your Claude.ai session usage at a glance — built from scratch so you know exactly what it does with your session key.
 
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-blue)
@@ -14,7 +16,7 @@ A macOS menu bar app that shows your Claude.ai session usage at a glance — bui
 
 ## Installation
 
-1. Download `Tokn-1.0.0.dmg` from the [latest release](../../releases/latest)
+1. Download `Tokn-1.0.1.dmg` from the [latest release](../../releases/latest)
 2. Open the DMG and drag **Tokn** into **Applications**
 3. On first launch, right-click → **Open** once (macOS Gatekeeper prompt for unsigned apps — one-time only)
 
