@@ -339,6 +339,20 @@ private struct SettingsPanel: View {
 
                 div.frame(height: 1).padding(.bottom, 12)
 
+                rowLabel("Menu Bar Icon")
+                Picker("", selection: Binding(
+                    get: { appModel.settings.menuBarStyle },
+                    set: { appModel.settings.menuBarStyle = $0 }
+                )) {
+                    ForEach(MenuBarStyle.allCases, id: \.self) { style in
+                        Text(style.rawValue).tag(style)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding(.bottom, 14)
+
+                div.frame(height: 1).padding(.bottom, 12)
+
                 rowLabel("Notifications")
                 Toggle(isOn: Binding(
                     get: { appModel.settings.notificationsEnabled },
