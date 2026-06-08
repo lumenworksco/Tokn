@@ -45,7 +45,7 @@ final class AppModel {
         guard isSetupComplete else { usageData = nil; return }
         guard !isLoading else { return }
 
-        if usageData == nil { isLoading = true }
+        isLoading = true
         errorMessage = nil
 
         defer { isLoading = false }

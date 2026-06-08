@@ -12,22 +12,16 @@ struct UsageView: View {
     @State private var refreshAngle: Double = 0
 
     var body: some View {
-        ZStack(alignment: .top) {
+        Group {
             if showSettings {
                 SettingsPanel(appModel: appModel, showSettings: $showSettings)
-                    .transition(.asymmetric(
-                        insertion: .move(edge: .trailing).combined(with: .opacity),
-                        removal:   .move(edge: .trailing).combined(with: .opacity)
-                    ))
+                    .transition(.push(from: .trailing))
             } else {
                 mainView
-                    .transition(.asymmetric(
-                        insertion: .move(edge: .leading).combined(with: .opacity),
-                        removal:   .move(edge: .leading).combined(with: .opacity)
-                    ))
+                    .transition(.push(from: .leading))
             }
         }
-        .animation(.spring(response: 0.3, dampingFraction: 0.88), value: showSettings)
+        .animation(.spring(response: 0.3, dampingFraction: 0.9), value: showSettings)
         .frame(width: 280)
         .background(bg)
         .onReceive(NotificationCenter.default.publisher(for: NSPopover.didCloseNotification))   { _ in showSettings = false }
@@ -195,9 +189,18 @@ private struct UsageCard: View {
     let limit: UsageLimit
     let delay: Double
 
-    @State private var displayed: Double = 0
-    @State private var fillFraction: Double = 0
-    @State private var appeared = false
+    // Initialised from limit so the card never starts at 0 on (re-)appear
+    @State private var displayed: Double
+    @State private var fillFraction: Double
+
+    init(icon: String, title: String, limit: UsageLimit, delay: Double) {
+        self.icon  = icon
+        self.title = title
+        self.limit = limit
+        self.delay = delay
+        _displayed    = State(initialValue: limit.utilization)
+        _fillFraction = State(initialValue: min(limit.utilization / 100, 1))
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
@@ -214,7 +217,7 @@ private struct UsageCard: View {
                     .font(.system(size: 13, weight: .semibold, design: .monospaced))
                     .foregroundStyle(limit.status.color)
                     .contentTransition(.numericText())
-                    .monospacedDigit()
+                    .animation(.spring(response: 0.4, dampingFraction: 0.82), value: displayed)
             }
 
             // Progress bar
@@ -226,6 +229,7 @@ private struct UsageCard: View {
                     Capsule()
                         .fill(limit.status.color)
                         .frame(width: max(3, geo.size.width * fillFraction), height: 4)
+                        .animation(.spring(response: 0.5, dampingFraction: 0.85), value: fillFraction)
                 }
             }
             .frame(height: 4)
@@ -251,20 +255,9 @@ private struct UsageCard: View {
                 .fill(cardBg)
                 .strokeBorder(stroke, lineWidth: 0.5)
         )
-        .opacity(appeared ? 1 : 0)
-        .offset(y: appeared ? 0 : 5)
-        .onAppear {
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.84).delay(delay)) {
-                appeared     = true
-                displayed    = limit.utilization
-                fillFraction = min(limit.utilization / 100, 1)
-            }
-        }
         .onChange(of: limit.utilization) { _, newVal in
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.82)) {
-                displayed    = newVal
-                fillFraction = min(newVal / 100, 1)
-            }
+            displayed    = newVal
+            fillFraction = min(newVal / 100, 1)
         }
     }
 }
