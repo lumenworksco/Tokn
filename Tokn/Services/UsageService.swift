@@ -45,7 +45,7 @@ actor UsageService {
             )
             return try response.toUsageData()
         } catch let error as NetworkError {
-            if case .authenticationFailed = error { throw AppError.authenticationFailed }
+            if case .sessionExpired = error { throw AppError.authenticationFailed }
             throw AppError.networkError(error)
         } catch {
             throw AppError.unknown(error)

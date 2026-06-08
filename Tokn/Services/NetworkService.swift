@@ -2,7 +2,8 @@ import Foundation
 
 enum NetworkError: LocalizedError {
     case invalidURL
-    case authenticationFailed
+    case sessionExpired          // HTTP 401
+    case accessBlocked           // HTTP 403 — often Cloudflare
     case rateLimitExceeded
     case httpError(statusCode: Int)
     case decodingFailed
@@ -10,12 +11,13 @@ enum NetworkError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .invalidURL:            return "Invalid URL"
-        case .authenticationFailed:  return "Session key invalid or expired — please re-enter"
-        case .rateLimitExceeded:     return "Rate limit exceeded, try again shortly"
-        case .httpError(let code):   return "HTTP error \(code)"
-        case .decodingFailed:        return "Unexpected response from Claude API"
-        case .networkUnavailable:    return "Network unavailable"
+        case .invalidURL:       return "Invalid URL"
+        case .sessionExpired:   return "Session key rejected (401) — get a fresh key from claude.ai cookies"
+        case .accessBlocked:    return "Request blocked (403) — Cloudflare may be rejecting the connection. Try again or contact support."
+        case .rateLimitExceeded: return "Rate limit exceeded, try again shortly"
+        case .httpError(let c): return "HTTP \(c) from Claude API"
+        case .decodingFailed:   return "Unexpected response format from Claude API"
+        case .networkUnavailable: return "Network unavailable"
         }
     }
 }
@@ -38,20 +40,26 @@ actor NetworkService {
 
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("application/json, text/plain, */*", forHTTPHeaderField: "Accept")
 
         if urlString.hasPrefix("https://claude.ai") {
-            // Mimic a browser XHR so both Cloudflare and Claude's CORS/fetch checks pass.
             request.setValue("sessionKey=\(sessionKey)", forHTTPHeaderField: "Cookie")
             request.setValue(
-                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
                 forHTTPHeaderField: "User-Agent"
             )
+            request.setValue(
+                "\"Google Chrome\";v=\"125\", \"Chromium\";v=\"125\", \"Not.A/Brand\";v=\"24\"",
+                forHTTPHeaderField: "sec-ch-ua"
+            )
+            request.setValue("?0",      forHTTPHeaderField: "sec-ch-ua-mobile")
+            request.setValue("\"macOS\"", forHTTPHeaderField: "sec-ch-ua-platform")
             request.setValue("https://claude.ai", forHTTPHeaderField: "Referer")
             request.setValue("https://claude.ai", forHTTPHeaderField: "Origin")
-            request.setValue("same-origin",        forHTTPHeaderField: "Sec-Fetch-Site")
-            request.setValue("cors",               forHTTPHeaderField: "Sec-Fetch-Mode")
-            request.setValue("empty",              forHTTPHeaderField: "Sec-Fetch-Dest")
+            request.setValue("same-origin", forHTTPHeaderField: "Sec-Fetch-Site")
+            request.setValue("cors",        forHTTPHeaderField: "Sec-Fetch-Mode")
+            request.setValue("empty",       forHTTPHeaderField: "Sec-Fetch-Dest")
+            request.setValue("en-US,en;q=0.9", forHTTPHeaderField: "Accept-Language")
         }
 
         let (data, response) = try await session.data(for: request)
@@ -62,7 +70,8 @@ actor NetworkService {
 
         switch http.statusCode {
         case 200...299: break
-        case 401, 403:  throw NetworkError.authenticationFailed
+        case 401:       throw NetworkError.sessionExpired
+        case 403:       throw NetworkError.accessBlocked
         case 429:       throw NetworkError.rateLimitExceeded
         default:        throw NetworkError.httpError(statusCode: http.statusCode)
         }
