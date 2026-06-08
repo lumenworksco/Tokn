@@ -56,14 +56,15 @@ struct UsageView: View {
                 Image(systemName: "arrow.clockwise")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(Color(white: 0.45))
+                    .frame(width: 16, height: 16)     // fixed square so rotation is always centred
                     .rotationEffect(.degrees(refreshAngle))
             }
             .buttonStyle(.plain)
             .task(id: appModel.isLoading) {
                 guard appModel.isLoading else { return }
                 while !Task.isCancelled {
-                    withAnimation(.linear(duration: 0.6)) { refreshAngle += 360 }
-                    try? await Task.sleep(for: .milliseconds(600))
+                    withAnimation(.linear(duration: 0.7)) { refreshAngle += 360 }
+                    try? await Task.sleep(for: .milliseconds(700))
                 }
             }
         }
