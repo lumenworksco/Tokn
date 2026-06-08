@@ -11,6 +11,7 @@ struct MenuBarLabel: View {
                     .frame(width: 7, height: 7)
                 Text("\(Int(data.sessionUsage.utilization))%")
                     .font(.system(size: 12, weight: .medium, design: .monospaced))
+                    .foregroundStyle(data.sessionUsage.status.color)
             } else if appModel.isLoading {
                 ProgressView()
                     .controlSize(.mini)
