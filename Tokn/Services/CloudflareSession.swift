@@ -1,34 +1,26 @@
 import WebKit
+import AppKit
 
-// Cloudflare blocks URLSession on claude.ai — it can't pass the JS bot challenge.
-// Solution: make all claude.ai API calls from within a persistent WKWebView using
-// JS fetch. The WKWebView is a real browser context, passes Cloudflare automatically,
-// and its cookie store holds both the sessionKey and __cf_bm cookies.
+// All claude.ai API calls go through WKWebView JS fetch to bypass Cloudflare.
+// IMPORTANT: WKWebView creation in a menu bar (LSUIElement) app changes the
+// NSApp activation policy, hiding the menu bar icon. We fix this by:
+//   1. Creating the WKWebView lazily (only on first API call, not at startup)
+//   2. Re-asserting .accessory policy right after creation
 @MainActor
 final class ClaudeAPIClient: NSObject {
     static let shared = ClaudeAPIClient()
 
-    private let webView: WKWebView
+    private var webView: WKWebView?
+    private var messageRouter: _MessageRouter?
+    private var navDelegate: _NavDelegate?
     private var isReady = false
     private var readyWaiters: [CheckedContinuation<Void, Never>] = []
     private var pending: [String: CheckedContinuation<String, Error>] = [:]
 
-    private override init() {
-        let config = WKWebViewConfiguration()
-        webView = WKWebView(frame: CGRect(x: 0, y: 0, width: 10, height: 10), configuration: config)
-        super.init()
-        config.userContentController.add(_Bridge(self), name: "bridge")
-        webView.navigationDelegate = _NavDelegate(self)
-        webView.load(URLRequest(url: URL(string: "https://claude.ai")!))
-    }
+    private override init() { super.init() }
 
-    // Wait until claude.ai has loaded and Cloudflare cookies are established.
-    func ensureReady() async {
-        guard !isReady else { return }
-        await withCheckedContinuation { readyWaiters.append($0) }
-    }
+    // MARK: - Public API
 
-    // Make a JSON API call via WKWebView's JS fetch (bypasses Cloudflare).
     func fetch(path: String, sessionKey: String) async throws -> String {
         await ensureReady()
         await setSessionKeyCookie(sessionKey)
@@ -44,21 +36,27 @@ final class ClaudeAPIClient: NSObject {
             .then(function(r){
                 if(r.ok){
                     r.text().then(function(d){
-                        window.webkit.messageHandlers.bridge.postMessage({id:id,ok:true,data:d,status:200});
+                        window.webkit.messageHandlers.bridge.postMessage(
+                            {id:id,ok:true,data:d,status:200}
+                        );
                     });
                 } else {
-                    window.webkit.messageHandlers.bridge.postMessage({id:id,ok:false,data:'',status:r.status});
+                    window.webkit.messageHandlers.bridge.postMessage(
+                        {id:id,ok:false,data:'',status:r.status}
+                    );
                 }
             })
             .catch(function(){
-                window.webkit.messageHandlers.bridge.postMessage({id:id,ok:false,data:'',status:-1});
+                window.webkit.messageHandlers.bridge.postMessage(
+                    {id:id,ok:false,data:'',status:-1}
+                );
             });
         })();
         """
 
         return try await withCheckedThrowingContinuation { cont in
             pending[id] = cont
-            webView.evaluateJavaScript(js) { [weak self] _, error in
+            webView?.evaluateJavaScript(js) { [weak self] _, error in
                 if let error {
                     self?.pending.removeValue(forKey: id)?.resume(throwing: error)
                 }
@@ -70,7 +68,7 @@ final class ClaudeAPIClient: NSObject {
 
     fileprivate func didLoad() {
         Task { @MainActor in
-            // Give the Cloudflare JS challenge time to complete and set __cf_bm cookie.
+            // Give the Cloudflare JS challenge time to run and set __cf_bm cookie.
             try? await Task.sleep(for: .seconds(1.5))
             isReady = true
             let waiters = readyWaiters
@@ -80,9 +78,9 @@ final class ClaudeAPIClient: NSObject {
     }
 
     fileprivate func handleMessage(_ body: [String: Any]) {
-        guard let id     = body["id"]     as? String,
-              let ok     = body["ok"]     as? Bool,
-              let cont   = pending.removeValue(forKey: id) else { return }
+        guard let id   = body["id"]   as? String,
+              let ok   = body["ok"]   as? Bool,
+              let cont = pending.removeValue(forKey: id) else { return }
 
         if ok, let data = body["data"] as? String {
             cont.resume(returning: data)
@@ -97,21 +95,53 @@ final class ClaudeAPIClient: NSObject {
         }
     }
 
+    // MARK: - Private
+
+    private func ensureReady() async {
+        if isReady { return }
+        if webView == nil { buildWebView() }
+        await withCheckedContinuation { readyWaiters.append($0) }
+    }
+
+    private func buildWebView() {
+        // Set up the message router BEFORE WKWebView is created so the
+        // userContentController is correctly copied into the web view.
+        let router = _MessageRouter(self)
+        messageRouter = router
+
+        let config = WKWebViewConfiguration()
+        config.userContentController.add(router, name: "bridge")
+
+        let wv = WKWebView(frame: CGRect(x: 0, y: 0, width: 1, height: 1), configuration: config)
+        let nav = _NavDelegate(self)
+        navDelegate = nav
+        wv.navigationDelegate = nav
+        webView = wv
+
+        // Re-assert accessory policy — WKWebView creation can change it,
+        // which would hide the menu bar icon.
+        NSApp.setActivationPolicy(.accessory)
+
+        wv.load(URLRequest(url: URL(string: "https://claude.ai")!))
+    }
+
     private func setSessionKeyCookie(_ value: String) async {
-        guard let cookie = HTTPCookie(properties: [
-            .name: "sessionKey", .value: value,
-            .domain: ".claude.ai", .path: "/", .secure: true
-        ]) else { return }
+        guard let wv = webView,
+              let cookie = HTTPCookie(properties: [
+                  .name: "sessionKey", .value: value,
+                  .domain: ".claude.ai", .path: "/", .secure: true
+              ]) else { return }
         await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
-            webView.configuration.websiteDataStore.httpCookieStore.setCookie(cookie) {
+            wv.configuration.websiteDataStore.httpCookieStore.setCookie(cookie) {
                 cont.resume()
             }
         }
     }
 }
 
-// Weak-proxy bridge to avoid WKUserContentController retain cycle.
-private final class _Bridge: NSObject, WKScriptMessageHandler {
+// Separate object to hold the WKScriptMessageHandler (avoids retain cycle with
+// WKUserContentController, which holds a strong reference to its handlers).
+final class _MessageRouter: NSObject, WKScriptMessageHandler {
     weak var client: ClaudeAPIClient?
     init(_ c: ClaudeAPIClient) { client = c }
 
@@ -122,7 +152,7 @@ private final class _Bridge: NSObject, WKScriptMessageHandler {
     }
 }
 
-private final class _NavDelegate: NSObject, WKNavigationDelegate {
+final class _NavDelegate: NSObject, WKNavigationDelegate {
     weak var client: ClaudeAPIClient?
     init(_ c: ClaudeAPIClient) { client = c }
 

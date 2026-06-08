@@ -30,9 +30,6 @@ final class AppModel {
         settings = settingsRepo.load()
         isSetupComplete = keychain.exists()
 
-        // Kick off WKWebView warm-up immediately so it's ready before the first API call.
-        _ = ClaudeAPIClient.shared
-
         if isSetupComplete {
             Task { await refresh(force: true) }
             startRefreshLoop()
