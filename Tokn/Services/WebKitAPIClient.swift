@@ -3,17 +3,21 @@ import WebKit
 // Cloudflare protects claude.ai with a JS challenge that URLSession can't pass (TLS fingerprint).
 //
 // Strategy: use WKWebView navigation for all requests — both the CF warm-up and API calls.
-// The session cookie is set directly in the URLRequest Cookie header (not via WKHTTPCookieStore,
-// which has a known async propagation race where setCookie() completes but the networking layer
-// hasn't picked it up before the next navigation starts). URLRequest Cookie headers are merged
-// with any store-held cookies (e.g. cf_clearance set during warm-up), so CF bypass is preserved.
+// The session cookie is set in the URLRequest Cookie header (no WKHTTPCookieStore race).
+// URLRequest Cookie headers are MERGED with store-held cookies by WebKit, so if the store has
+// a stale sessionKey from a previous account, the server sees duplicate cookies and may use the
+// wrong one. Fix: clear all non-CF claude.ai cookies from the store on account switch.
 @MainActor
 final class WebKitAPIClient: NSObject, WKNavigationDelegate {
 
     private let webView: WKWebView
     private var pageLoadContinuation: CheckedContinuation<Void, Never>?
     private var lastHTTPStatus = 200
-    private var contextReady = false  // CF challenge passed + session confirmed valid
+    private var contextReady = false
+    private var currentSessionKey: String?   // tracks account; reset on switch
+
+    // CF bot-detection cookies are domain/IP-scoped, not account-scoped — keep them on switch.
+    private static let cfCookieNames: Set<String> = ["cf_clearance", "__cf_bm", "_cfuvid"]
 
     override init() {
         let config = WKWebViewConfiguration()
@@ -27,23 +31,29 @@ final class WebKitAPIClient: NSObject, WKNavigationDelegate {
     }
 
     func get<T: Decodable>(_ path: String, sessionKey: String) async throws -> T {
+        // Account switch: clear stale session cookies and force a fresh warm-up.
+        // Without this, the store holds the previous account's sessionKey, which WebKit
+        // merges with our header → the server sees duplicate cookies → returns [] (wrong account).
+        if currentSessionKey != sessionKey {
+            currentSessionKey = sessionKey
+            contextReady = false
+            await clearClaudeSessionCookies()
+        }
+
         let sessionCookie = "sessionKey=\(sessionKey)"
 
         // First call: load claude.ai to pass Cloudflare's JS challenge and verify the session.
-        // The session cookie is in the URLRequest header — no WKHTTPCookieStore race condition.
         if !contextReady {
             await navigate(to: "https://claude.ai/", extraCookies: sessionCookie)
             guard webView.url?.host?.hasSuffix("claude.ai") == true,
                   webView.url?.path.hasPrefix("/login") == false else {
-                // Session invalid — redirected to login or accounts.anthropic.com.
                 throw NetworkError.sessionExpired
             }
             contextReady = true
         }
 
         // Navigate directly to the API endpoint.
-        // sessionCookie is in the URLRequest header; cf_clearance (set by Cloudflare during
-        // warm-up) is merged in automatically from the WKHTTPCookieStore.
+        // sessionCookie is in the URLRequest header; cf_clearance from the store is merged in.
         await navigate(to: path, extraCookies: sessionCookie, acceptJSON: true)
 
         guard webView.url?.host?.hasSuffix("claude.ai") == true else {
@@ -65,7 +75,6 @@ final class WebKitAPIClient: NSObject, WKNavigationDelegate {
         default: throw NetworkError.httpError(statusCode: lastHTTPStatus)
         }
 
-        // WebKit wraps a JSON response in <pre>; textContent gives the raw JSON.
         guard let jsonText = await bodyText().nilIfEmpty,
               let data = jsonText.data(using: .utf8) else {
             throw NetworkError.decodingFailed
@@ -80,7 +89,17 @@ final class WebKitAPIClient: NSObject, WKNavigationDelegate {
         }
     }
 
-    // Navigate and wait for completion. extraCookies is merged with any store-held cookies.
+    // Remove all claude.ai session cookies except CF bot-detection ones.
+    // Called on account switch to prevent cookie conflicts with the new account.
+    private func clearClaudeSessionCookies() async {
+        let store = webView.configuration.websiteDataStore.httpCookieStore
+        for cookie in await store.allCookies() {
+            guard cookie.domain.hasSuffix("claude.ai") else { continue }
+            guard !Self.cfCookieNames.contains(cookie.name) else { continue }
+            await store.deleteCookie(cookie)
+        }
+    }
+
     private func navigate(to urlString: String, extraCookies: String? = nil, acceptJSON: Bool = false) async {
         guard let url = URL(string: urlString) else { return }
         var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 30)
@@ -96,8 +115,6 @@ final class WebKitAPIClient: NSObject, WKNavigationDelegate {
         }
     }
 
-    // Read the page body. WebKit wraps a JSON-content-type response in <pre>,
-    // so this handles both the <pre>-wrapped case and a plain body fallback.
     private func bodyText() async -> String {
         await withCheckedContinuation { (continuation: CheckedContinuation<String, Never>) in
             webView.evaluateJavaScript(
@@ -110,7 +127,6 @@ final class WebKitAPIClient: NSObject, WKNavigationDelegate {
 
     // MARK: WKNavigationDelegate
 
-    // Capture the HTTP status code from the response before the page body is processed.
     func webView(_ webView: WKWebView,
                  decidePolicyFor navigationResponse: WKNavigationResponse,
                  decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void) {
