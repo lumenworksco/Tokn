@@ -1,168 +1,150 @@
 import WebKit
 import AppKit
 
-// All claude.ai API calls go through WKWebView JS fetch to bypass Cloudflare.
-// IMPORTANT: WKWebView creation in a menu bar (LSUIElement) app changes the
-// NSApp activation policy, hiding the menu bar icon. We fix this by:
-//   1. Creating the WKWebView lazily (only on first API call, not at startup)
-//   2. Re-asserting .accessory policy right after creation
+// JS fetch() inside WKWebView cannot solve Cloudflare challenges — only full
+// page navigation can. Strategy: navigate the WKWebView directly to each API
+// URL. WKWebView solves any Cloudflare challenge transparently, then didFinish
+// fires and we read document.body.innerText to get the JSON response.
 @MainActor
 final class ClaudeAPIClient: NSObject {
     static let shared = ClaudeAPIClient()
 
     private var webView: WKWebView?
-    private var messageRouter: _MessageRouter?
-    private var navDelegate: _NavDelegate?
-    private var isReady = false
-    private var readyWaiters: [CheckedContinuation<Void, Never>] = []
-    private var pending: [String: CheckedContinuation<String, Error>] = [:]
+    private var apiDelegate: _APIDelegate?
+    // Serialises concurrent calls — only one navigation at a time.
+    private var pendingCall: CheckedContinuation<String, Error>?
 
     private override init() { super.init() }
 
-    // MARK: - Public API
+    // Make an API GET to claude.ai, returning the raw JSON response body.
+    func get(path: String, sessionKey: String) async throws -> String {
+        let wv = ensureWebView()
+        await setSessionKeyCookie(sessionKey, on: wv)
 
-    func fetch(path: String, sessionKey: String) async throws -> String {
-        await ensureReady()
-        await setSessionKeyCookie(sessionKey)
-
-        let id = UUID().uuidString
-        let js = """
-        (function(){
-            var id='\(id)';
-            fetch('https://claude.ai\(path)',{
-                credentials:'include',
-                headers:{'Accept':'application/json'}
-            })
-            .then(function(r){
-                if(r.ok){
-                    r.text().then(function(d){
-                        window.webkit.messageHandlers.bridge.postMessage(
-                            {id:id,ok:true,data:d,status:200}
-                        );
-                    });
-                } else {
-                    window.webkit.messageHandlers.bridge.postMessage(
-                        {id:id,ok:false,data:'',status:r.status}
-                    );
-                }
-            })
-            .catch(function(){
-                window.webkit.messageHandlers.bridge.postMessage(
-                    {id:id,ok:false,data:'',status:-1}
-                );
-            });
-        })();
-        """
-
+        let url = URL(string: "https://claude.ai\(path)")!
         return try await withCheckedThrowingContinuation { cont in
-            pending[id] = cont
-            webView?.evaluateJavaScript(js) { [weak self] _, error in
-                if let error {
-                    self?.pending.removeValue(forKey: id)?.resume(throwing: error)
+            pendingCall = cont
+            wv.load(URLRequest(url: url))
+        }
+    }
+
+    // MARK: - Internal (called by delegate)
+
+    fileprivate func navigationSucceeded(webView: WKWebView) {
+        // Extract the JSON text the WKWebView rendered.
+        // For application/json URLs WebKit renders the body in a <pre> tag;
+        // innerText gives us the raw JSON string.
+        webView.evaluateJavaScript("document.body.innerText") { [weak self] result, error in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if let text = result as? String, !text.isEmpty {
+                    self.pendingCall?.resume(returning: text)
+                } else {
+                    self.pendingCall?.resume(throwing: NetworkError.decodingFailed)
                 }
+                self.pendingCall = nil
             }
         }
     }
 
-    // MARK: - Internal
-
-    fileprivate func didLoad() {
-        Task { @MainActor in
-            // Give the Cloudflare JS challenge time to run and set __cf_bm cookie.
-            try? await Task.sleep(for: .seconds(1.5))
-            isReady = true
-            let waiters = readyWaiters
-            readyWaiters.removeAll()
-            for w in waiters { w.resume() }
-        }
-    }
-
-    fileprivate func handleMessage(_ body: [String: Any]) {
-        guard let id   = body["id"]   as? String,
-              let ok   = body["ok"]   as? Bool,
-              let cont = pending.removeValue(forKey: id) else { return }
-
-        if ok, let data = body["data"] as? String {
-            cont.resume(returning: data)
-        } else {
-            let status = body["status"] as? Int ?? 0
-            switch status {
-            case 401: cont.resume(throwing: NetworkError.authenticationFailed)
-            case 403: cont.resume(throwing: NetworkError.blockedByFirewall)
-            case 429: cont.resume(throwing: NetworkError.rateLimitExceeded)
-            default:  cont.resume(throwing: NetworkError.httpError(statusCode: status))
-            }
-        }
+    fileprivate func navigationFailed(with error: Error) {
+        pendingCall?.resume(throwing: error)
+        pendingCall = nil
     }
 
     // MARK: - Private
 
-    private func ensureReady() async {
-        if isReady { return }
-        if webView == nil { buildWebView() }
-        await withCheckedContinuation { readyWaiters.append($0) }
-    }
+    private func ensureWebView() -> WKWebView {
+        if let existing = webView { return existing }
 
-    private func buildWebView() {
-        // Set up the message router BEFORE WKWebView is created so the
-        // userContentController is correctly copied into the web view.
-        let router = _MessageRouter(self)
-        messageRouter = router
+        let delegate = _APIDelegate(self)
+        apiDelegate = delegate
 
-        let config = WKWebViewConfiguration()
-        config.userContentController.add(router, name: "bridge")
-
-        let wv = WKWebView(frame: CGRect(x: 0, y: 0, width: 1, height: 1), configuration: config)
-        let nav = _NavDelegate(self)
-        navDelegate = nav
-        wv.navigationDelegate = nav
+        let wv = WKWebView(frame: CGRect(x: 0, y: 0, width: 1, height: 1))
+        wv.navigationDelegate = delegate
         webView = wv
 
-        // Re-assert accessory policy — WKWebView creation can change it,
-        // which would hide the menu bar icon.
+        // WKWebView creation can flip NSApp activation policy, hiding the menu bar icon.
         NSApp.setActivationPolicy(.accessory)
 
-        wv.load(URLRequest(url: URL(string: "https://claude.ai")!))
+        return wv
     }
 
-    private func setSessionKeyCookie(_ value: String) async {
-        guard let wv = webView,
-              let cookie = HTTPCookie(properties: [
-                  .name: "sessionKey", .value: value,
-                  .domain: ".claude.ai", .path: "/", .secure: true
-              ]) else { return }
+    private func setSessionKeyCookie(_ value: String, on webView: WKWebView) async {
+        guard let cookie = HTTPCookie(properties: [
+            .name: "sessionKey", .value: value,
+            .domain: ".claude.ai", .path: "/", .secure: true
+        ]) else { return }
         await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
-            wv.configuration.websiteDataStore.httpCookieStore.setCookie(cookie) {
+            webView.configuration.websiteDataStore.httpCookieStore.setCookie(cookie) {
                 cont.resume()
             }
         }
     }
 }
 
-// Separate object to hold the WKScriptMessageHandler (avoids retain cycle with
-// WKUserContentController, which holds a strong reference to its handlers).
-final class _MessageRouter: NSObject, WKScriptMessageHandler {
+// MARK: - Delegate
+
+final class _APIDelegate: NSObject, WKNavigationDelegate {
     weak var client: ClaudeAPIClient?
     init(_ c: ClaudeAPIClient) { client = c }
 
-    nonisolated func userContentController(_ uc: WKUserContentController,
-                                           didReceive message: WKScriptMessage) {
-        guard let body = message.body as? [String: Any] else { return }
-        Task { @MainActor [weak self] in self?.client?.handleMessage(body) }
+    // Allow everything — Cloudflare challenge pages (403 HTML) must be loaded
+    // so that WKWebView can execute the JS challenge and get cf_clearance.
+    // The only responses we cancel early are unambiguous auth/rate errors with
+    // a JSON content type (i.e. from Claude's backend, not Cloudflare's HTML).
+    nonisolated func webView(_ webView: WKWebView,
+                             decidePolicyFor response: WKNavigationResponse,
+                             decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void) {
+        guard let http = response.response as? HTTPURLResponse else {
+            decisionHandler(.allow); return
+        }
+
+        let isHTML = (http.mimeType ?? "").contains("text/html")
+
+        switch http.statusCode {
+        case 200...299:
+            decisionHandler(.allow)
+        case 401:
+            decisionHandler(.cancel)
+            Task { @MainActor [weak self] in
+                self?.client?.navigationFailed(with: NetworkError.authenticationFailed)
+            }
+        case 403 where isHTML:
+            // HTML 403 = Cloudflare challenge page — let WKWebView solve it.
+            decisionHandler(.allow)
+        case 403:
+            decisionHandler(.cancel)
+            Task { @MainActor [weak self] in
+                self?.client?.navigationFailed(with: NetworkError.blockedByFirewall)
+            }
+        case 429:
+            decisionHandler(.cancel)
+            Task { @MainActor [weak self] in
+                self?.client?.navigationFailed(with: NetworkError.rateLimitExceeded)
+            }
+        default:
+            decisionHandler(.allow)
+        }
     }
-}
-
-final class _NavDelegate: NSObject, WKNavigationDelegate {
-    weak var client: ClaudeAPIClient?
-    init(_ c: ClaudeAPIClient) { client = c }
 
     nonisolated func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        Task { @MainActor [weak self] in self?.client?.didLoad() }
+        Task { @MainActor [weak self] in
+            self?.client?.navigationSucceeded(webView: webView)
+        }
     }
-    nonisolated func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-        Task { @MainActor [weak self] in self?.client?.didLoad() }
+
+    nonisolated func webView(_ webView: WKWebView,
+                             didFail navigation: WKNavigation!, withError error: Error) {
+        Task { @MainActor [weak self] in
+            self?.client?.navigationFailed(with: NetworkError.networkUnavailable)
+        }
     }
-    nonisolated func webView(_ webView: WKWebView, didFailProvisionalNavigation nav: WKNavigation!, withError error: Error) {
-        Task { @MainActor [weak self] in self?.client?.didLoad() }
+
+    nonisolated func webView(_ webView: WKWebView,
+                             didFailProvisionalNavigation nav: WKNavigation!, withError error: Error) {
+        Task { @MainActor [weak self] in
+            self?.client?.navigationFailed(with: NetworkError.networkUnavailable)
+        }
     }
 }

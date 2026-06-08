@@ -13,7 +13,7 @@ enum NetworkError: LocalizedError {
         switch self {
         case .invalidURL:            return "Invalid URL"
         case .authenticationFailed:  return "Authentication failed — session key invalid or expired"
-        case .blockedByFirewall:     return "Request blocked — open claude.ai in Safari once, then try again"
+        case .blockedByFirewall:     return "Request blocked by Cloudflare — check your session key and try again"
         case .rateLimitExceeded:     return "Rate limit exceeded, try again shortly"
         case .httpError(let code):   return "HTTP error \(code)"
         case .decodingFailed:        return "Unexpected response from Claude API"
@@ -39,7 +39,7 @@ actor NetworkService {
         // Route through WKWebView-based client which passes as a real browser.
         if urlString.hasPrefix("https://claude.ai") {
             let path = String(urlString.dropFirst("https://claude.ai".count))
-            let json = try await ClaudeAPIClient.shared.fetch(path: path, sessionKey: sessionKey)
+            let json = try await ClaudeAPIClient.shared.get(path: path, sessionKey: sessionKey)
             guard let data = json.data(using: .utf8) else { throw NetworkError.decodingFailed }
             do {
                 let decoder = JSONDecoder()
