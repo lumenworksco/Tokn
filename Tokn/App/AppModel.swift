@@ -34,7 +34,11 @@ final class AppModel {
             Task { await refresh(force: true) }
             startRefreshLoop()
         }
-        updateChecker.check()
+
+        Task {
+            guard let update = await updateChecker.check(), !update.url.isEmpty else { return }
+            autoUpdater.startUpdate(from: update.url)
+        }
     }
 
     func refresh(force: Bool = false) async {

@@ -13,19 +13,19 @@ final class UpdateChecker {
         current = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
     }
 
-    func check() {
-        Task {
-            var req = URLRequest(url: apiURL)
-            req.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
-            guard let (data, _) = try? await URLSession.shared.data(for: req),
-                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let tag  = json["tag_name"] as? String else { return }
-            let remote = tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
-            guard isNewer(remote, than: current) else { return }
-            let url = (json["assets"] as? [[String: Any]])?.first?["browser_download_url"] as? String
-            availableVersion = remote
-            downloadURL = url
-        }
+    // Returns (version, downloadURL) if a newer release exists, nil otherwise.
+    func check() async -> (version: String, url: String)? {
+        var req = URLRequest(url: apiURL)
+        req.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        guard let (data, _) = try? await URLSession.shared.data(for: req),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let tag  = json["tag_name"] as? String else { return nil }
+        let remote = tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
+        guard isNewer(remote, than: current) else { return nil }
+        let url = (json["assets"] as? [[String: Any]])?.first?["browser_download_url"] as? String ?? ""
+        availableVersion = remote
+        downloadURL = url
+        return (remote, url)
     }
 
     private func isNewer(_ remote: String, than local: String) -> Bool {

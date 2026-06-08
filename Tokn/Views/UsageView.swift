@@ -1,270 +1,276 @@
 import SwiftUI
 
-private let bgColor    = Color(white: 0.10)
-private let cardColor  = Color(white: 0.14)
-private let divider    = Color(white: 1.0).opacity(0.08)
+private let bg      = Color(red: 0.085, green: 0.085, blue: 0.11)
+private let cardBg  = Color(white: 1, opacity: 0.055)
+private let stroke  = Color(white: 1, opacity: 0.08)
+private let div     = Color(white: 1, opacity: 0.07)
+private let accent  = Color(red: 0.55, green: 0.36, blue: 0.96)
 
 struct UsageView: View {
     let appModel: AppModel
     @State private var showSettings = false
+    @State private var refreshAngle: Double = 0
 
     var body: some View {
-        Group {
+        ZStack(alignment: .top) {
             if showSettings {
                 SettingsPanel(appModel: appModel, showSettings: $showSettings)
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .trailing).combined(with: .opacity),
+                        removal:   .move(edge: .trailing).combined(with: .opacity)
+                    ))
             } else {
                 mainView
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .leading).combined(with: .opacity),
+                        removal:   .move(edge: .leading).combined(with: .opacity)
+                    ))
             }
         }
-        .background(bgColor)
-        .frame(width: 320)
-        .onReceive(NotificationCenter.default.publisher(for: NSPopover.didCloseNotification)) { _ in
-            showSettings = false
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignKeyNotification)) { _ in
-            showSettings = false
-        }
+        .animation(.spring(response: 0.3, dampingFraction: 0.88), value: showSettings)
+        .frame(width: 280)
+        .background(bg)
+        .onReceive(NotificationCenter.default.publisher(for: NSPopover.didCloseNotification))   { _ in showSettings = false }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignKeyNotification)) { _ in showSettings = false }
     }
+
+    // MARK: Main
 
     private var mainView: some View {
         VStack(spacing: 0) {
             header
-            Rectangle().fill(divider).frame(height: 1)
+            div.frame(height: 1)
             if appModel.updateChecker.availableVersion != nil {
                 updateBanner
-                Rectangle().fill(divider).frame(height: 1)
+                div.frame(height: 1)
             }
             content
-            Rectangle().fill(divider).frame(height: 1)
+            div.frame(height: 1)
             footer
         }
     }
 
-    private var updateBanner: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "arrow.down.circle.fill")
-                .foregroundStyle(Color(red: 0.55, green: 0.36, blue: 0.96))
-                .font(.system(size: 15))
-            VStack(alignment: .leading, spacing: 1) {
-                Text("Update available")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.white)
-                if let ver = appModel.updateChecker.availableVersion {
-                    Text("v\(ver) is ready to install")
-                        .font(.system(size: 11))
-                        .foregroundStyle(Color(white: 0.5))
-                }
-            }
-            Spacer()
-            updateActionView
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(Color(red: 0.55, green: 0.36, blue: 0.96).opacity(0.10))
-    }
-
-    @ViewBuilder
-    private var updateActionView: some View {
-        switch appModel.autoUpdater.phase {
-        case .idle:
-            Button("Update") {
-                if let url = appModel.updateChecker.downloadURL {
-                    appModel.autoUpdater.startUpdate(from: url)
-                }
-            }
-            .font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(Color(red: 0.55, green: 0.36, blue: 0.96))
-            .buttonStyle(.plain)
-        case .downloading(let p):
-            HStack(spacing: 6) {
-                ProgressView(value: p)
-                    .progressViewStyle(.linear)
-                    .frame(width: 60)
-                    .tint(Color(red: 0.55, green: 0.36, blue: 0.96))
-                Text("\(Int(p * 100))%")
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(Color(white: 0.5))
-            }
-        case .installing:
-            HStack(spacing: 5) {
-                ProgressView().controlSize(.mini)
-                Text("Installing…")
-                    .font(.system(size: 11))
-                    .foregroundStyle(Color(white: 0.5))
-            }
-        case .failed(let msg):
-            Button("Retry") { appModel.autoUpdater.reset() }
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(.orange)
-                .buttonStyle(.plain)
-                .help(msg)
-        }
-    }
-
-    // MARK: Header
     private var header: some View {
-        HStack(alignment: .center) {
+        HStack {
             Text("Tokn")
-                .font(.system(size: 22, weight: .bold))
+                .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(.white)
             Spacer()
             Button {
                 Task { await appModel.refresh(force: true) }
             } label: {
                 Image(systemName: "arrow.clockwise")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(Color(white: 0.6))
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Color(white: 0.45))
+                    .rotationEffect(.degrees(refreshAngle))
             }
             .buttonStyle(.plain)
-            .disabled(appModel.isLoading)
+            .task(id: appModel.isLoading) {
+                guard appModel.isLoading else { return }
+                while !Task.isCancelled {
+                    withAnimation(.linear(duration: 0.6)) { refreshAngle += 360 }
+                    try? await Task.sleep(for: .milliseconds(600))
+                }
+            }
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 18)
-        .background(bgColor)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
     }
 
     // MARK: Content
+
     @ViewBuilder
     private var content: some View {
-        if appModel.isLoading {
+        if appModel.isLoading && appModel.usageData == nil {
             loadingView
-        } else if let error = appModel.errorMessage {
+        } else if let error = appModel.errorMessage, appModel.usageData == nil {
             errorView(error)
         } else if let data = appModel.usageData {
-            VStack(spacing: 12) {
-                UsageCard(icon: "timer", title: "5-Hour Session", limit: data.sessionUsage)
-                UsageCard(icon: "calendar", title: "Weekly Usage",   limit: data.weeklyUsage)
+            VStack(spacing: 8) {
+                UsageCard(icon: "timer",    title: "5h Session", limit: data.sessionUsage, delay: 0)
+                UsageCard(icon: "calendar", title: "Weekly",     limit: data.weeklyUsage,  delay: 0.05)
             }
-            .padding(16)
-            .background(bgColor)
+            .padding(10)
         } else {
             loadingView
         }
     }
 
     private var loadingView: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 6) {
             ProgressView().controlSize(.small)
             Text("Loading…")
-                .font(.system(size: 14))
-                .foregroundStyle(Color(white: 0.5))
+                .font(.system(size: 12, design: .monospaced))
+                .foregroundStyle(Color(white: 0.35))
         }
-        .padding(28)
-        .frame(maxWidth: .infinity, alignment: .center)
-        .background(bgColor)
+        .frame(maxWidth: .infinity)
+        .padding(20)
     }
 
-    private func errorView(_ message: String) -> some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: "exclamationmark.triangle.fill")
+    private func errorView(_ msg: String) -> some View {
+        HStack(alignment: .top, spacing: 7) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 11))
                 .foregroundStyle(.orange)
-                .font(.system(size: 14))
-            Text(message)
-                .font(.system(size: 13))
-                .foregroundStyle(Color(white: 0.6))
+            Text(msg)
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(Color(white: 0.45))
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(bgColor)
+        .padding(12)
+    }
+
+    // MARK: Update banner
+
+    private var updateBanner: some View {
+        HStack(spacing: 8) {
+            Circle().fill(accent).frame(width: 6, height: 6)
+            Text("v\(appModel.updateChecker.availableVersion ?? "") available")
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(Color(white: 0.65))
+            Spacer()
+            updateAction
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 7)
+        .background(accent.opacity(0.07))
+    }
+
+    @ViewBuilder
+    private var updateAction: some View {
+        switch appModel.autoUpdater.phase {
+        case .idle:
+            // Auto-download starts immediately; idle here means the Task is in flight
+            ProgressView().controlSize(.mini).tint(accent)
+        case .downloading(let p):
+            HStack(spacing: 5) {
+                ProgressView(value: p).progressViewStyle(.linear).frame(width: 48).tint(accent)
+                Text("\(Int(p * 100))%")
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(Color(white: 0.4))
+            }
+        case .installing:
+            Text("installing…")
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(Color(white: 0.4))
+        case .failed:
+            Button("retry") {
+                if let url = appModel.updateChecker.downloadURL {
+                    appModel.autoUpdater.startUpdate(from: url)
+                }
+            }
+            .font(.system(size: 11, weight: .medium, design: .monospaced))
+            .foregroundStyle(.orange)
+            .buttonStyle(.plain)
+        }
     }
 
     // MARK: Footer
+
     private var footer: some View {
         HStack {
-            Button("Settings") { showSettings = true }
-                .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(.white)
-                .buttonStyle(.plain)
+            Button("settings") {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.88)) { showSettings = true }
+            }
+            .font(.system(size: 11, design: .monospaced))
+            .foregroundStyle(Color(white: 0.38))
+            .buttonStyle(.plain)
             Spacer()
-            Button("Quit") { NSApplication.shared.terminate(nil) }
-                .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(.white)
+            Button("quit") { NSApplication.shared.terminate(nil) }
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(Color(white: 0.38))
                 .buttonStyle(.plain)
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 18)
-        .background(bgColor)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 9)
     }
 }
 
 // MARK: - UsageCard
+
 private struct UsageCard: View {
     let icon: String
     let title: String
     let limit: UsageLimit
+    let delay: Double
+
+    @State private var displayed: Double = 0
+    @State private var fillFraction: Double = 0
+    @State private var appeared = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            // Title row
-            HStack {
+        VStack(alignment: .leading, spacing: 7) {
+            // Title + percentage row
+            HStack(spacing: 5) {
                 Image(systemName: icon)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(limit.status.color)
+                    .font(.system(size: 10))
+                    .foregroundStyle(Color(white: 0.38))
                 Text(title)
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(.white)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Color(white: 0.62))
                 Spacer()
-                StatusBadge(status: limit.status)
+                Text("\(Int(displayed))%")
+                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(limit.status.color)
+                    .contentTransition(.numericText())
+                    .monospacedDigit()
             }
-
-            // Large percentage
-            Text("\(Int(limit.utilization))%")
-                .font(.system(size: 60, weight: .bold, design: .rounded))
-                .foregroundStyle(limit.status.color)
-                .monospacedDigit()
 
             // Progress bar
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     Capsule()
-                        .fill(Color(white: 1.0).opacity(0.10))
-                        .frame(height: 10)
+                        .fill(Color(white: 1, opacity: 0.07))
+                        .frame(height: 4)
                     Capsule()
                         .fill(limit.status.color)
-                        .frame(width: max(8, geo.size.width * min(limit.utilization / 100, 1.0)),
-                               height: 10)
-                        .animation(.easeInOut(duration: 0.4), value: limit.utilization)
+                        .frame(width: max(3, geo.size.width * fillFraction), height: 4)
                 }
             }
-            .frame(height: 10)
+            .frame(height: 4)
 
-            // Reset time
-            HStack(spacing: 5) {
-                Image(systemName: "clock")
-                    .font(.system(size: 12))
-                    .foregroundStyle(Color(white: 0.45))
+            // Reset + status row
+            HStack {
                 Text(limit.resetDescription)
-                    .font(.system(size: 13))
-                    .foregroundStyle(Color(white: 0.45))
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(Color(white: 0.28))
+                Spacer()
+                HStack(spacing: 3) {
+                    Circle().fill(limit.status.color).frame(width: 5, height: 5)
+                    Text(limit.status.label.lowercased())
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .foregroundStyle(limit.status.color.opacity(0.8))
+                }
             }
         }
-        .padding(18)
-        .background(cardColor)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
-    }
-}
-
-// MARK: - StatusBadge
-private struct StatusBadge: View {
-    let status: UsageStatus
-
-    var body: some View {
-        HStack(spacing: 5) {
-            Image(systemName: status.icon)
-                .font(.system(size: 12, weight: .semibold))
-            Text(status.label)
-                .font(.system(size: 13, weight: .semibold))
+        .padding(.horizontal, 11)
+        .padding(.vertical, 9)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(cardBg)
+                .strokeBorder(stroke, lineWidth: 0.5)
+        )
+        .opacity(appeared ? 1 : 0)
+        .offset(y: appeared ? 0 : 5)
+        .onAppear {
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.84).delay(delay)) {
+                appeared     = true
+                displayed    = limit.utilization
+                fillFraction = min(limit.utilization / 100, 1)
+            }
         }
-        .foregroundStyle(status.color)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 5)
-        .background(status.badgeBackground)
-        .clipShape(Capsule())
+        .onChange(of: limit.utilization) { _, newVal in
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.82)) {
+                displayed    = newVal
+                fillFraction = min(newVal / 100, 1)
+            }
+        }
     }
 }
 
-// MARK: - SettingsPanel (inline, no sheet)
+// MARK: - SettingsPanel
+
 private struct SettingsPanel: View {
     let appModel: AppModel
     @Binding var showSettings: Bool
@@ -273,72 +279,69 @@ private struct SettingsPanel: View {
     @State private var clearError: String?
 
     private let intervals: [(label: String, value: TimeInterval)] = [
-        ("1 minute",   60),
-        ("2 minutes",  120),
-        ("5 minutes",  300),
-        ("10 minutes", 600)
+        ("1 min",  60),
+        ("2 min",  120),
+        ("5 min",  300),
+        ("10 min", 600)
     ]
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header
-            HStack {
-                Button {
-                    showSettings = false
-                } label: {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Color(white: 0.6))
-                }
-                .buttonStyle(.plain)
+            ZStack {
                 Text("Settings")
-                    .font(.system(size: 17, weight: .bold))
-                    .foregroundStyle(.white)
-                Spacer()
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 18)
-            .background(bgColor)
-
-            Rectangle().fill(divider).frame(height: 1)
-
-            // Body
-            VStack(alignment: .leading, spacing: 20) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Refresh Interval")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(Color(white: 0.55))
-                        .textCase(.uppercase)
-                    Picker("", selection: $selectedInterval) {
-                        ForEach(intervals, id: \.value) { item in
-                            Text(item.label).tag(item.value)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color(white: 0.8))
+                HStack {
+                    Button {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.88)) { showSettings = false }
+                    } label: {
+                        HStack(spacing: 2) {
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 10, weight: .semibold))
+                            Text("back")
+                                .font(.system(size: 11, design: .monospaced))
                         }
+                        .foregroundStyle(Color(white: 0.4))
                     }
-                    .pickerStyle(.menu)
-                    .labelsHidden()
+                    .buttonStyle(.plain)
+                    Spacer()
                 }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 11)
 
-                Rectangle().fill(divider).frame(height: 1)
+            div.frame(height: 1)
+
+            VStack(alignment: .leading, spacing: 0) {
+                rowLabel("Refresh")
+                Picker("", selection: $selectedInterval) {
+                    ForEach(intervals, id: \.value) { Text($0.label).tag($0.value) }
+                }
+                .pickerStyle(.menu)
+                .labelsHidden()
+                .padding(.bottom, 14)
+
+                div.frame(height: 1).padding(.bottom, 12)
 
                 if let error = clearError {
-                    Label(error, systemImage: "exclamationmark.triangle.fill")
-                        .font(.caption)
+                    Text(error)
+                        .font(.system(size: 10, design: .monospaced))
                         .foregroundStyle(.red)
+                        .padding(.bottom, 8)
                 }
 
-                Button(role: .destructive) {
-                    showClearConfirm = true
-                } label: {
-                    Label("Remove Session Key", systemImage: "trash")
-                        .font(.system(size: 14))
+                Button(role: .destructive) { showClearConfirm = true } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: "trash").font(.system(size: 11))
+                        Text("remove session key")
+                            .font(.system(size: 11, design: .monospaced))
+                    }
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(Color(red: 1, green: 0.27, blue: 0.23))
-                .confirmationDialog(
-                    "Remove session key?",
-                    isPresented: $showClearConfirm,
-                    titleVisibility: .visible
-                ) {
+                .foregroundStyle(Color(red: 1, green: 0.27, blue: 0.23).opacity(0.85))
+                .confirmationDialog("Remove session key?",
+                                    isPresented: $showClearConfirm,
+                                    titleVisibility: .visible) {
                     Button("Remove", role: .destructive) {
                         do {
                             try appModel.clearSessionKey()
@@ -348,30 +351,36 @@ private struct SettingsPanel: View {
                         }
                     }
                 } message: {
-                    Text("You will need to re-enter your session key to use Tokn.")
+                    Text("You'll need to re-enter your session key to use Tokn.")
                 }
             }
-            .padding(20)
+            .padding(.horizontal, 14)
+            .padding(.top, 12)
+            .padding(.bottom, 14)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(bgColor)
 
-            Rectangle().fill(divider).frame(height: 1)
+            div.frame(height: 1)
 
-            // Footer
             HStack {
                 Spacer()
-                Button("Quit") { NSApplication.shared.terminate(nil) }
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(.white)
+                Button("quit") { NSApplication.shared.terminate(nil) }
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(Color(white: 0.38))
                     .buttonStyle(.plain)
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 18)
-            .background(bgColor)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 9)
         }
         .onAppear { selectedInterval = appModel.settings.refreshInterval }
-        .onChange(of: selectedInterval) {
-            appModel.settings.setRefreshInterval(selectedInterval)
-        }
+        .onChange(of: selectedInterval) { appModel.settings.setRefreshInterval(selectedInterval) }
+    }
+
+    private func rowLabel(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 9, weight: .semibold))
+            .foregroundStyle(Color(white: 0.32))
+            .kerning(0.8)
+            .textCase(.uppercase)
+            .padding(.bottom, 6)
     }
 }
