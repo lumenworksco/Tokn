@@ -25,7 +25,6 @@ struct UsageView: View {
         .animation(.spring(response: 0.3, dampingFraction: 0.9), value: showSettings)
         .frame(width: 280)
         .background(bg)
-        .onReceive(NotificationCenter.default.publisher(for: NSPopover.didCloseNotification))   { _ in showSettings = false }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignKeyNotification)) { _ in showSettings = false }
     }
 
@@ -95,9 +94,9 @@ struct UsageView: View {
             let history = appModel.historyService.load()
             VStack(spacing: 8) {
                 UsageCard(icon: "timer",    title: "5h Session", limit: data.sessionUsage,
-                          history: history.map(\.sessionPct), delay: 0)
+                          history: history.map(\.sessionPct))
                 UsageCard(icon: "calendar", title: "Weekly",     limit: data.weeklyUsage,
-                          history: history.map(\.weeklyPct),  delay: 0.05)
+                          history: history.map(\.weeklyPct))
             }
             .padding(10)
         } else {
@@ -108,7 +107,7 @@ struct UsageView: View {
     private var loadingView: some View {
         HStack(spacing: 6) {
             ProgressView().controlSize(.small)
-            Text("Loading…")
+            Text("loading…")
                 .font(.system(size: 12, design: .monospaced))
                 .foregroundStyle(Color(white: 0.35))
         }
@@ -163,15 +162,21 @@ struct UsageView: View {
             Text("installing…")
                 .font(.system(size: 11, design: .monospaced))
                 .foregroundStyle(Color(white: 0.4))
-        case .failed:
-            Button("retry") {
-                if let url = appModel.updateChecker.downloadURL {
-                    appModel.autoUpdater.startUpdate(from: url)
+        case .failed(let msg):
+            VStack(alignment: .trailing, spacing: 3) {
+                Text(msg)
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(Color(white: 0.4))
+                    .multilineTextAlignment(.trailing)
+                Button("retry") {
+                    if let url = appModel.updateChecker.downloadURL {
+                        appModel.autoUpdater.startUpdate(from: url)
+                    }
                 }
+                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                .foregroundStyle(.orange)
+                .buttonStyle(.plain)
             }
-            .font(.system(size: 11, weight: .medium, design: .monospaced))
-            .foregroundStyle(.orange)
-            .buttonStyle(.plain)
         }
     }
 
@@ -203,18 +208,16 @@ private struct UsageCard: View {
     let title: String
     let limit: UsageLimit
     let history: [Double]
-    let delay: Double
 
     // Initialised from limit so the card never starts at 0 on (re-)appear
     @State private var displayed: Double
     @State private var fillFraction: Double
 
-    init(icon: String, title: String, limit: UsageLimit, history: [Double], delay: Double) {
+    init(icon: String, title: String, limit: UsageLimit, history: [Double]) {
         self.icon    = icon
         self.title   = title
         self.limit   = limit
         self.history = history
-        self.delay   = delay
         _displayed    = State(initialValue: limit.utilization)
         _fillFraction = State(initialValue: min(limit.utilization / 100, 1))
     }
@@ -444,7 +447,7 @@ private struct SettingsPanel: View {
             HStack {
                 Text("v\(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?")")
                     .font(.system(size: 9, design: .monospaced))
-                    .foregroundStyle(Color(white: 0.2))
+                    .foregroundStyle(Color(white: 0.35))
                 Spacer()
                 Button("quit") { NSApplication.shared.terminate(nil) }
                     .font(.system(size: 11, design: .monospaced))

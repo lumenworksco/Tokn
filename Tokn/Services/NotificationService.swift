@@ -19,10 +19,6 @@ final class NotificationService {
         checkLimit(data.weeklyUsage,  name: "Weekly")
     }
 
-    func resetAll() {
-        notifiedAt = [:]
-    }
-
     private func checkLimit(_ limit: UsageLimit, name: String) {
         let pct = Int(limit.utilization)
         let thresholds = [80, 100]
