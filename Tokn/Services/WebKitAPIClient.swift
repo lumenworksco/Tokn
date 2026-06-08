@@ -1,29 +1,37 @@
 import WebKit
 
-// URLSession is blocked by Cloudflare on claude.ai via TLS fingerprinting.
-// WKWebView uses WebKit's networking stack (same TLS fingerprint as Safari),
-// which Cloudflare recognises as a real browser.
+// Cloudflare on claude.ai blocks URLSession via TLS fingerprinting and also blocks
+// WKWebView with a private cookie store (missing cf_clearance) and wrong User-Agent.
 //
-// Strategy: load a minimal HTML document at the claude.ai origin (no network
-// request for the page itself), then run fetch() via JavaScript so all API
-// calls go through WebKit's network stack with the correct session cookie.
+// Fix: use the system-default WebKit data store (shared with Safari — contains the
+// real cf_clearance and other Cloudflare cookies), set a Safari User-Agent, and
+// load an actual claude.ai page before making API calls so all requests come from
+// a real, Cloudflare-trusted document context.
 @MainActor
 final class WebKitAPIClient: NSObject, WKNavigationDelegate {
 
     private let webView: WKWebView
-    private var originLoadContinuation: CheckedContinuation<Void, Error>?
-    private var originLoaded = false
+    private var pageLoadContinuation: CheckedContinuation<Void, Never>?
+    private var contextReady = false
 
     override init() {
         let config = WKWebViewConfiguration()
+        // Default store shares cookies with Safari, including cf_clearance issued
+        // to the user's real browser sessions on claude.ai.
+        config.websiteDataStore = .default()
         webView = WKWebView(frame: CGRect(x: 0, y: 0, width: 1, height: 1), configuration: config)
         super.init()
         webView.navigationDelegate = self
+        // Present as Safari so Cloudflare's bot detection accepts the requests.
+        webView.customUserAgent =
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) " +
+            "AppleWebKit/605.1.15 (KHTML, like Gecko) " +
+            "Version/18.3 Safari/605.1.15"
     }
 
     func get<T: Decodable>(_ path: String, sessionKey: String) async throws -> T {
         await injectSessionCookie(sessionKey)
-        if !originLoaded { try await loadOrigin() }
+        if !contextReady { await loadContext() }
 
         let js = """
             const r = await fetch('\(path)', {
@@ -57,7 +65,8 @@ final class WebKitAPIClient: NSObject, WKNavigationDelegate {
         }
     }
 
-    // Inject (or replace) the session cookie in WebKit's persistent cookie store.
+    // Inject (or replace) the session cookie. Goes into the shared Safari store,
+    // alongside cf_clearance and other cookies Cloudflare expects.
     private func injectSessionCookie(_ value: String) async {
         let store = webView.configuration.websiteDataStore.httpCookieStore
         for old in await store.allCookies() where old.name == "sessionKey" {
@@ -71,13 +80,17 @@ final class WebKitAPIClient: NSObject, WKNavigationDelegate {
         await store.setCookie(cookie)
     }
 
-    // loadHTMLString with an https:// baseURL sets the document origin to claude.ai
-    // without making any network request. Subsequent fetch() calls are same-origin.
-    private func loadOrigin() async throws {
-        try await withCheckedThrowingContinuation { continuation in
-            originLoadContinuation = continuation
-            webView.loadHTMLString("<html><body></body></html>",
-                                   baseURL: URL(string: "https://claude.ai")!)
+    // Load a real, lightweight page from claude.ai so subsequent fetch() calls
+    // originate from a genuine claude.ai document context (not a local string).
+    private func loadContext() async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            pageLoadContinuation = continuation
+            let req = URLRequest(
+                url: URL(string: "https://claude.ai/robots.txt")!,
+                cachePolicy: .reloadIgnoringLocalCacheData,
+                timeoutInterval: 15
+            )
+            webView.load(req)
         }
     }
 
@@ -89,18 +102,22 @@ final class WebKitAPIClient: NSObject, WKNavigationDelegate {
     // MARK: WKNavigationDelegate
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-        originLoaded = true
-        originLoadContinuation?.resume()
-        originLoadContinuation = nil
+        contextReady = true
+        pageLoadContinuation?.resume()
+        pageLoadContinuation = nil
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-        originLoadContinuation?.resume(throwing: error)
-        originLoadContinuation = nil
+        // Even if the page itself fails (e.g. 403 on robots.txt), mark context ready
+        // and let the fetch() call surface the real error.
+        contextReady = true
+        pageLoadContinuation?.resume()
+        pageLoadContinuation = nil
     }
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
-        originLoadContinuation?.resume(throwing: error)
-        originLoadContinuation = nil
+        contextReady = true
+        pageLoadContinuation?.resume()
+        pageLoadContinuation = nil
     }
 }
