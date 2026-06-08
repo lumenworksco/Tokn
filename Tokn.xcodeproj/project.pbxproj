@@ -24,6 +24,7 @@
 		CF11AA2387B14D9AB1C4E5F7 /* CloudflareSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF11AA2287B14D9AB1C4E5F6 /* CloudflareSession.swift */; };
 		AA1BC3340F2E4D87B9A6C521 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA1BC3330F2E4D87B9A6C520 /* NotificationService.swift */; };
 		BB2CD4450G3F5E98CAB7D632 /* UsageHistoryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB2CD4440G3F5E98CAB7D631 /* UsageHistoryService.swift */; };
+		EE4FA6671J5H8IC1FED0G964 /* WebKitAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE4FA6661J5H8IC1FED0G963 /* WebKitAPIClient.swift */; };
 		CC3DE5560H4G6FA9DBC8E743 /* SparklineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC3DE5550H4G6FA9DBC8E742 /* SparklineView.swift */; };
 		525AF976226544C1895C59FB /* MenuBarLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB877FE419A540B1B7D9894F /* MenuBarLabel.swift */; };
 		7A072B4315CE4E99908D65F0 /* SetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D69EAC664AA54E859EF81AF5 /* SetupView.swift */; };
@@ -51,6 +52,7 @@
 		CF11AA2287B14D9AB1C4E5F6 /* CloudflareSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudflareSession.swift; sourceTree = "<group>"; };
 		AA1BC3330F2E4D87B9A6C520 /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
 		BB2CD4440G3F5E98CAB7D631 /* UsageHistoryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageHistoryService.swift; sourceTree = "<group>"; };
+		EE4FA6661J5H8IC1FED0G963 /* WebKitAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebKitAPIClient.swift; sourceTree = "<group>"; };
 		CC3DE5550H4G6FA9DBC8E742 /* SparklineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SparklineView.swift; sourceTree = "<group>"; };
 		CB877FE419A540B1B7D9894F /* MenuBarLabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarLabel.swift; sourceTree = "<group>"; };
 		D69EAC664AA54E859EF81AF5 /* SetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupView.swift; sourceTree = "<group>"; };
@@ -152,6 +154,7 @@
 				CF11AA2287B14D9AB1C4E5F6 /* CloudflareSession.swift */,
 				AA1BC3330F2E4D87B9A6C520 /* NotificationService.swift */,
 				BB2CD4440G3F5E98CAB7D631 /* UsageHistoryService.swift */,
+				EE4FA6661J5H8IC1FED0G963 /* WebKitAPIClient.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -254,6 +257,7 @@
 				CF11AA2387B14D9AB1C4E5F7 /* CloudflareSession.swift in Sources */,
 				AA1BC3340F2E4D87B9A6C521 /* NotificationService.swift in Sources */,
 				BB2CD4450G3F5E98CAB7D632 /* UsageHistoryService.swift in Sources */,
+				EE4FA6671J5H8IC1FED0G964 /* WebKitAPIClient.swift in Sources */,
 				CC3DE5560H4G6FA9DBC8E743 /* SparklineView.swift in Sources */,
 				525AF976226544C1895C59FB /* MenuBarLabel.swift in Sources */,
 				7A072B4315CE4E99908D65F0 /* SetupView.swift in Sources */,

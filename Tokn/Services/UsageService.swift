@@ -22,12 +22,13 @@ private struct Organization: Decodable {
     let uuid: String
 }
 
-actor UsageService {
-    private let network = NetworkService()
+@MainActor
+final class UsageService {
+    private let webKit = WebKitAPIClient()
     private let baseURL = "https://claude.ai/api"
 
     func validateKey(_ key: SessionKey) async throws -> String {
-        let orgs: [Organization] = try await network.get(
+        let orgs: [Organization] = try await webKit.get(
             "\(baseURL)/organizations",
             sessionKey: key.value
         )
@@ -39,7 +40,7 @@ actor UsageService {
 
     func fetchUsage(sessionKey: String, organizationId: String) async throws -> UsageData {
         do {
-            let response: UsageAPIResponse = try await network.get(
+            let response: UsageAPIResponse = try await webKit.get(
                 "\(baseURL)/organizations/\(organizationId)/usage",
                 sessionKey: sessionKey
             )
