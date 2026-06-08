@@ -7,45 +7,54 @@ struct SparklineView: View {
     var body: some View {
         GeometryReader { geo in
             if points.count >= 2 {
+                let pts = scaled(to: geo.size)
                 ZStack(alignment: .bottom) {
-                    fillPath(in: geo.size).fill(
-                        LinearGradient(
+                    fillPath(pts, size: geo.size)
+                        .fill(LinearGradient(
                             colors: [color.opacity(0.25), color.opacity(0)],
                             startPoint: .top, endPoint: .bottom
-                        )
-                    )
-                    linePath(in: geo.size)
-                        .stroke(color.opacity(0.7), style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
+                        ))
+                    linePath(pts)
+                        .stroke(color.opacity(0.7),
+                                style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
                 }
             }
         }
     }
 
-    private func xPos(_ i: Int, width: CGFloat) -> CGFloat {
-        guard points.count > 1 else { return 0 }
-        return CGFloat(i) / CGFloat(points.count - 1) * width
+    // Scale to a local min–max range so any variation fills the chart height.
+    // A flat line (all identical values) renders centered.
+    private func scaled(to size: CGSize) -> [CGPoint] {
+        guard let lo = points.min(), let hi = points.max() else { return [] }
+        let spread  = hi - lo
+        // At least 6pp of visible range so tiny movements are still legible
+        let padding = max(spread * 0.25, 3)
+        let visMin  = max(0,   lo - padding)
+        let visMax  = min(100, hi + padding)
+        let range   = visMax - visMin
+
+        return points.enumerated().map { i, val in
+            let x = CGFloat(i) / CGFloat(points.count - 1) * size.width
+            let norm = range > 0 ? (val - visMin) / range : 0.5
+            let y    = size.height - CGFloat(norm) * size.height
+            return CGPoint(x: x, y: y)
+        }
     }
 
-    private func yPos(_ val: Double, height: CGFloat) -> CGFloat {
-        height - CGFloat(min(val, 100) / 100) * height
-    }
-
-    private func linePath(in size: CGSize) -> Path {
+    private func linePath(_ pts: [CGPoint]) -> Path {
         Path { p in
-            for (i, val) in points.enumerated() {
-                let pt = CGPoint(x: xPos(i, width: size.width), y: yPos(val, height: size.height))
+            for (i, pt) in pts.enumerated() {
                 i == 0 ? p.move(to: pt) : p.addLine(to: pt)
             }
         }
     }
 
-    private func fillPath(in size: CGSize) -> Path {
+    private func fillPath(_ pts: [CGPoint], size: CGSize) -> Path {
         Path { p in
-            p.move(to: CGPoint(x: 0, y: size.height))
-            for (i, val) in points.enumerated() {
-                p.addLine(to: CGPoint(x: xPos(i, width: size.width), y: yPos(val, height: size.height)))
-            }
-            p.addLine(to: CGPoint(x: size.width, y: size.height))
+            guard let first = pts.first, let last = pts.last else { return }
+            p.move(to: CGPoint(x: first.x, y: size.height))
+            pts.forEach { p.addLine(to: $0) }
+            p.addLine(to: CGPoint(x: last.x, y: size.height))
             p.closeSubpath()
         }
     }
