@@ -21,6 +21,7 @@
 		A03DC25AD9B740988AF243B4 /* UsageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 177B7BB9226A413A981A8792 /* UsageService.swift */; };
 		C1D4E8A23F7B4091BE2D5A67 /* UpdateChecker.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8F20D7E5C3A47E9A14F6C02 /* UpdateChecker.swift */; };
 		9E3A71F4D2C6408AB53F1E88 /* AutoUpdater.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D7B9C1A6E2F4D35A8C07F53 /* AutoUpdater.swift */; };
+		CF11AA2387B14D9AB1C4E5F7 /* CloudflareSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF11AA2287B14D9AB1C4E5F6 /* CloudflareSession.swift */; };
 		525AF976226544C1895C59FB /* MenuBarLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB877FE419A540B1B7D9894F /* MenuBarLabel.swift */; };
 		7A072B4315CE4E99908D65F0 /* SetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D69EAC664AA54E859EF81AF5 /* SetupView.swift */; };
 		968FBBE2DDC949859E7E50D2 /* UsageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B71E154383840CC8DC8943C /* UsageView.swift */; };
@@ -44,6 +45,7 @@
 		177B7BB9226A413A981A8792 /* UsageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageService.swift; sourceTree = "<group>"; };
 		B8F20D7E5C3A47E9A14F6C02 /* UpdateChecker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateChecker.swift; sourceTree = "<group>"; };
 		4D7B9C1A6E2F4D35A8C07F53 /* AutoUpdater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutoUpdater.swift; sourceTree = "<group>"; };
+		CF11AA2287B14D9AB1C4E5F6 /* CloudflareSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudflareSession.swift; sourceTree = "<group>"; };
 		CB877FE419A540B1B7D9894F /* MenuBarLabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarLabel.swift; sourceTree = "<group>"; };
 		D69EAC664AA54E859EF81AF5 /* SetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupView.swift; sourceTree = "<group>"; };
 		7B71E154383840CC8DC8943C /* UsageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageView.swift; sourceTree = "<group>"; };
@@ -141,6 +143,7 @@
 				177B7BB9226A413A981A8792 /* UsageService.swift */,
 				B8F20D7E5C3A47E9A14F6C02 /* UpdateChecker.swift */,
 				4D7B9C1A6E2F4D35A8C07F53 /* AutoUpdater.swift */,
+				CF11AA2287B14D9AB1C4E5F6 /* CloudflareSession.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -239,6 +242,7 @@
 				A03DC25AD9B740988AF243B4 /* UsageService.swift in Sources */,
 				C1D4E8A23F7B4091BE2D5A67 /* UpdateChecker.swift in Sources */,
 				9E3A71F4D2C6408AB53F1E88 /* AutoUpdater.swift in Sources */,
+				CF11AA2387B14D9AB1C4E5F7 /* CloudflareSession.swift in Sources */,
 				525AF976226544C1895C59FB /* MenuBarLabel.swift in Sources */,
 				7A072B4315CE4E99908D65F0 /* SetupView.swift in Sources */,
 				968FBBE2DDC949859E7E50D2 /* UsageView.swift in Sources */,

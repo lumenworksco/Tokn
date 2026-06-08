@@ -3,6 +3,7 @@ import Foundation
 enum NetworkError: LocalizedError {
     case invalidURL
     case authenticationFailed
+    case blockedByFirewall
     case rateLimitExceeded
     case httpError(statusCode: Int)
     case decodingFailed
@@ -12,6 +13,7 @@ enum NetworkError: LocalizedError {
         switch self {
         case .invalidURL:            return "Invalid URL"
         case .authenticationFailed:  return "Authentication failed — session key invalid or expired"
+        case .blockedByFirewall:     return "Request blocked — open claude.ai in Safari once, then try again"
         case .rateLimitExceeded:     return "Rate limit exceeded, try again shortly"
         case .httpError(let code):   return "HTTP error \(code)"
         case .decodingFailed:        return "Unexpected response from Claude API"
@@ -59,6 +61,7 @@ actor NetworkService {
         switch http.statusCode {
         case 200...299: break
         case 401:       throw NetworkError.authenticationFailed
+        case 403:       throw NetworkError.blockedByFirewall
         case 429:       throw NetworkError.rateLimitExceeded
         default:        throw NetworkError.httpError(statusCode: http.statusCode)
         }

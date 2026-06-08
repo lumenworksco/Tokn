@@ -31,11 +31,15 @@ final class AppModel {
         isSetupComplete = keychain.exists()
 
         if isSetupComplete {
-            Task { await refresh(force: true) }
+            Task {
+                await CloudflareSession.shared.establish()
+                await refresh(force: true)
+            }
             startRefreshLoop()
         }
 
         Task {
+            await CloudflareSession.shared.establish()
             guard let update = await updateChecker.check(), !update.url.isEmpty else { return }
             autoUpdater.startUpdate(from: update.url)
         }
@@ -64,6 +68,7 @@ final class AppModel {
 
     func saveSessionKey(_ raw: String) async throws {
         let key = try SessionKey(raw)
+        await CloudflareSession.shared.establish()
         let orgId = try await usageService.validateKey(key)
         try keychain.save(key.value)
         settings.cachedOrganizationId = orgId
