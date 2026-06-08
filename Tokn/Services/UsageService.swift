@@ -22,13 +22,12 @@ private struct Organization: Decodable {
     let uuid: String
 }
 
-@MainActor
 final class UsageService {
-    private let webKit = WebKitAPIClient()
+    private let network = NetworkService()
     private let baseURL = "https://claude.ai/api"
 
     func validateKey(_ key: SessionKey) async throws -> String {
-        let orgs: [Organization] = try await webKit.get(
+        let orgs: [Organization] = try await network.get(
             "\(baseURL)/organizations",
             sessionKey: key.value
         )
@@ -40,14 +39,13 @@ final class UsageService {
 
     func fetchUsage(sessionKey: String, organizationId: String) async throws -> UsageData {
         do {
-            let response: UsageAPIResponse = try await webKit.get(
+            let response: UsageAPIResponse = try await network.get(
                 "\(baseURL)/organizations/\(organizationId)/usage",
                 sessionKey: sessionKey
             )
             return try response.toUsageData()
         } catch let error as NetworkError {
             if case .sessionExpired = error { throw AppError.authenticationFailed }
-            if case .permissionDenied = error { throw AppError.organizationNotFound }
             throw AppError.networkError(error)
         } catch {
             throw AppError.unknown(error)
