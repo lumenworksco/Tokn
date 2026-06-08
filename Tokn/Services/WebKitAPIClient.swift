@@ -2,11 +2,11 @@ import WebKit
 
 // Cloudflare protects claude.ai with a JS challenge that URLSession can't pass (TLS fingerprint).
 //
-// Strategy: use WKWebView for all networking — both the CF warm-up and the API calls.
-// Navigating directly to an API URL sends all cookies (sessionKey, cf_clearance, etc.)
-// exactly as a real browser would, bypassing every credential-injection problem.
-// callAsyncJavaScript(fetch()) was unreliable because injected JS may not carry the auth
-// context that Claude's SPA establishes internally; direct navigation has no such issue.
+// Strategy: use WKWebView navigation for all requests — both the CF warm-up and API calls.
+// The session cookie is set directly in the URLRequest Cookie header (not via WKHTTPCookieStore,
+// which has a known async propagation race where setCookie() completes but the networking layer
+// hasn't picked it up before the next navigation starts). URLRequest Cookie headers are merged
+// with any store-held cookies (e.g. cf_clearance set during warm-up), so CF bypass is preserved.
 @MainActor
 final class WebKitAPIClient: NSObject, WKNavigationDelegate {
 
@@ -27,25 +27,25 @@ final class WebKitAPIClient: NSObject, WKNavigationDelegate {
     }
 
     func get<T: Decodable>(_ path: String, sessionKey: String) async throws -> T {
-        await injectSessionCookie(sessionKey)
+        let sessionCookie = "sessionKey=\(sessionKey)"
 
         // First call: load claude.ai to pass Cloudflare's JS challenge and verify the session.
+        // The session cookie is in the URLRequest header — no WKHTTPCookieStore race condition.
         if !contextReady {
-            await navigate(to: "https://claude.ai/")
-            guard webView.url?.host?.hasSuffix("claude.ai") == true else {
-                // Redirected away from claude.ai — session key is invalid/expired.
+            await navigate(to: "https://claude.ai/", extraCookies: sessionCookie)
+            guard webView.url?.host?.hasSuffix("claude.ai") == true,
+                  webView.url?.path.hasPrefix("/login") == false else {
+                // Session invalid — redirected to login or accounts.anthropic.com.
                 throw NetworkError.sessionExpired
             }
             contextReady = true
-            // Re-inject in case the page load cleared/replaced our cookie.
-            await injectSessionCookie(sessionKey)
         }
 
-        // Navigate directly to the API endpoint with Accept: application/json.
-        // WebKit sends all cookies (sessionKey + cf_clearance) automatically — no JS injection needed.
-        await navigate(to: path, acceptJSON: true)
+        // Navigate directly to the API endpoint.
+        // sessionCookie is in the URLRequest header; cf_clearance (set by Cloudflare during
+        // warm-up) is merged in automatically from the WKHTTPCookieStore.
+        await navigate(to: path, extraCookies: sessionCookie, acceptJSON: true)
 
-        // If we got redirected to a login page, the session expired.
         guard webView.url?.host?.hasSuffix("claude.ai") == true else {
             contextReady = false
             throw NetworkError.sessionExpired
@@ -80,25 +80,13 @@ final class WebKitAPIClient: NSObject, WKNavigationDelegate {
         }
     }
 
-    // Inject (or replace) the session cookie for claude.ai.
-    private func injectSessionCookie(_ value: String) async {
-        let store = webView.configuration.websiteDataStore.httpCookieStore
-        for old in await store.allCookies() where old.name == "sessionKey" {
-            await store.deleteCookie(old)
-        }
-        guard let cookie = HTTPCookie(properties: [
-            .domain: "claude.ai", .path: "/",
-            .name: "sessionKey", .value: value,
-            .secure: "TRUE"
-        ]) else { return }
-        await store.setCookie(cookie)
-    }
-
-    // Navigate to a URL and wait for the load to finish (or fail).
-    // acceptJSON: true adds Accept: application/json so the server returns JSON, not an HTML page.
-    private func navigate(to urlString: String, acceptJSON: Bool = false) async {
+    // Navigate and wait for completion. extraCookies is merged with any store-held cookies.
+    private func navigate(to urlString: String, extraCookies: String? = nil, acceptJSON: Bool = false) async {
         guard let url = URL(string: urlString) else { return }
         var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 30)
+        if let cookies = extraCookies {
+            request.setValue(cookies, forHTTPHeaderField: "Cookie")
+        }
         if acceptJSON {
             request.setValue("application/json, text/plain, */*", forHTTPHeaderField: "Accept")
         }
@@ -111,7 +99,7 @@ final class WebKitAPIClient: NSObject, WKNavigationDelegate {
     // Read the page body. WebKit wraps a JSON-content-type response in <pre>,
     // so this handles both the <pre>-wrapped case and a plain body fallback.
     private func bodyText() async -> String {
-        return await withCheckedContinuation { (continuation: CheckedContinuation<String, Never>) in
+        await withCheckedContinuation { (continuation: CheckedContinuation<String, Never>) in
             webView.evaluateJavaScript(
                 "(document.querySelector('pre') || document.body).textContent.trim()"
             ) { result, _ in
