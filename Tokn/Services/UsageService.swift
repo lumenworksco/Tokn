@@ -46,6 +46,12 @@ final class UsageService {
             return try response.toUsageData()
         } catch let error as NetworkError {
             if case .sessionExpired = error { throw AppError.authenticationFailed }
+            // 403 "Invalid authorization for organization" means the cached org ID doesn't
+            // belong to this session key (stale cache from a different account).
+            // Throw organizationNotFound so AppModel re-validates and gets the correct org.
+            if case .accessBlocked(let detail) = error, detail.contains("permission_error") {
+                throw AppError.organizationNotFound
+            }
             throw AppError.networkError(error)
         } catch {
             throw AppError.unknown(error)
