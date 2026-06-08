@@ -92,9 +92,12 @@ struct UsageView: View {
         } else if let error = appModel.errorMessage, appModel.usageData == nil {
             errorView(error)
         } else if let data = appModel.usageData {
+            let history = appModel.historyService.load()
             VStack(spacing: 8) {
-                UsageCard(icon: "timer",    title: "5h Session", limit: data.sessionUsage, delay: 0)
-                UsageCard(icon: "calendar", title: "Weekly",     limit: data.weeklyUsage,  delay: 0.05)
+                UsageCard(icon: "timer",    title: "5h Session", limit: data.sessionUsage,
+                          history: history.map(\.sessionPct), delay: 0)
+                UsageCard(icon: "calendar", title: "Weekly",     limit: data.weeklyUsage,
+                          history: history.map(\.weeklyPct),  delay: 0.05)
             }
             .padding(10)
         } else {
@@ -199,17 +202,19 @@ private struct UsageCard: View {
     let icon: String
     let title: String
     let limit: UsageLimit
+    let history: [Double]
     let delay: Double
 
     // Initialised from limit so the card never starts at 0 on (re-)appear
     @State private var displayed: Double
     @State private var fillFraction: Double
 
-    init(icon: String, title: String, limit: UsageLimit, delay: Double) {
-        self.icon  = icon
-        self.title = title
-        self.limit = limit
-        self.delay = delay
+    init(icon: String, title: String, limit: UsageLimit, history: [Double], delay: Double) {
+        self.icon    = icon
+        self.title   = title
+        self.limit   = limit
+        self.history = history
+        self.delay   = delay
         _displayed    = State(initialValue: limit.utilization)
         _fillFraction = State(initialValue: min(limit.utilization / 100, 1))
     }
@@ -245,6 +250,12 @@ private struct UsageCard: View {
                 }
             }
             .frame(height: 4)
+
+            // Sparkline — only shown once we have enough history
+            if history.count >= 3 {
+                SparklineView(points: history, color: limit.status.color)
+                    .frame(height: 22)
+            }
 
             // Reset + status row
             HStack {

@@ -24,6 +24,7 @@ final class AppModel {
     let updateChecker = UpdateChecker()
     let autoUpdater = AutoUpdater()
     let notificationService = NotificationService()
+    let historyService = UsageHistoryService()
 
     private var refreshTask: Task<Void, Never>?
 
@@ -62,6 +63,7 @@ final class AppModel {
             usageData = try await usageService.fetchUsage(sessionKey: key, organizationId: orgId)
             if let data = usageData {
                 notificationService.check(data, enabled: settings.notificationsEnabled)
+                historyService.record(data)
             }
         } catch {
             errorMessage = error.localizedDescription
