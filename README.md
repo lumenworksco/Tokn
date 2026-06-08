@@ -28,13 +28,9 @@ Track your Claude.ai session and weekly usage from the macOS menu bar — built 
 
 1. Download the `.dmg` from the [latest release](https://github.com/lumenworksco/Tokn/releases/latest)
 2. Open it and drag **Tokn** into the **Applications** folder
-3. Run the one-time command below in Terminal, then launch normally
+3. Launch it — a coloured dot and percentage appear in your menu bar
 
-> **Required — unsigned build:** Tokn isn't notarized with Apple yet, so macOS will say "the app is damaged." This is a false positive from Gatekeeper. Strip the quarantine flag with:
-> ```bash
-> xattr -cr /Applications/Tokn.app
-> ```
-> After that, double-click to open as usual.
+> **First launch:** macOS will say "unidentified developer" since Tokn isn't notarized yet. Right-click **Tokn.app** → **Open** → **Open** to bypass it once.
 
 ---
 

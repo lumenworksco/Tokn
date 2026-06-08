@@ -39,6 +39,12 @@ cp -R "$BUILT_APP" "${STAGING}/Tokn.app"
 xattr -cr "${STAGING}/Tokn.app"
 echo "✓ Staging ready"
 
+echo "→ Ad-hoc signing..."
+codesign --force --deep --sign - \
+  --entitlements "Tokn/Tokn.entitlements" \
+  "${STAGING}/Tokn.app"
+echo "✓ Ad-hoc signed (unidentified developer — right-click → Open to bypass)"
+
 echo "→ Building DMG..."
 rm -f "/tmp/${DMG}"
 create-dmg \
