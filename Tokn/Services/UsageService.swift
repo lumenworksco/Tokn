@@ -47,6 +47,7 @@ final class UsageService {
             return try response.toUsageData()
         } catch let error as NetworkError {
             if case .sessionExpired = error { throw AppError.authenticationFailed }
+            if case .permissionDenied = error { throw AppError.organizationNotFound }
             throw AppError.networkError(error)
         } catch {
             throw AppError.unknown(error)

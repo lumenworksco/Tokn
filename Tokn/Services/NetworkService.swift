@@ -3,7 +3,8 @@ import Foundation
 enum NetworkError: LocalizedError {
     case invalidURL
     case sessionExpired          // HTTP 401
-    case accessBlocked(detail: String)  // HTTP 403 — often Cloudflare
+    case accessBlocked(detail: String)  // HTTP 403 — Cloudflare HTML
+    case permissionDenied        // HTTP 403 — Claude API JSON (wrong org or insufficient access)
     case rateLimitExceeded
     case httpError(statusCode: Int)
     case decodingFailed
@@ -14,6 +15,7 @@ enum NetworkError: LocalizedError {
         case .invalidURL:       return "Invalid URL"
         case .sessionExpired:   return "Session key rejected (401) — get a fresh key from claude.ai cookies"
         case .accessBlocked(let d): return "Request blocked (403)\(d.isEmpty ? "" : " — \(d)")"
+        case .permissionDenied: return "Permission denied — organization access unavailable"
         case .rateLimitExceeded: return "Rate limit exceeded, try again shortly"
         case .httpError(let c): return "HTTP \(c) from Claude API"
         case .decodingFailed:   return "Unexpected response format from Claude API"

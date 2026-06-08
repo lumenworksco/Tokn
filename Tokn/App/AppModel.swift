@@ -56,11 +56,21 @@ final class AppModel {
 
         do {
             let key = try keychain.retrieve()
-            guard let orgId = settings.cachedOrganizationId else {
-                errorMessage = "Missing organization ID. Please re-enter your session key."
-                return
+            let orgId: String
+            if let cached = settings.cachedOrganizationId {
+                orgId = cached
+            } else {
+                orgId = try await usageService.validateKey(try SessionKey(key))
+                settings.cachedOrganizationId = orgId
             }
-            usageData = try await usageService.fetchUsage(sessionKey: key, organizationId: orgId)
+            do {
+                usageData = try await usageService.fetchUsage(sessionKey: key, organizationId: orgId)
+            } catch AppError.organizationNotFound {
+                // Cached org ID may be stale — re-validate and retry once.
+                let freshOrgId = try await usageService.validateKey(try SessionKey(key))
+                settings.cachedOrganizationId = freshOrgId
+                usageData = try await usageService.fetchUsage(sessionKey: key, organizationId: freshOrgId)
+            }
             if let data = usageData {
                 notificationService.check(data, enabled: settings.notificationsEnabled)
                 historyService.record(data)

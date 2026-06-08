@@ -28,18 +28,27 @@ final class WebKitAPIClient: NSObject, WKNavigationDelegate {
     }
 
     func get<T: Decodable>(_ path: String, sessionKey: String) async throws -> T {
+        if !contextReady {
+            await injectSessionCookie(sessionKey)
+            await loadContext()
+        }
+        // Re-inject after page load — the server may have refreshed or cleared the cookie.
         await injectSessionCookie(sessionKey)
-        if !contextReady { await loadContext() }
 
-        // Include response body in error so we can see whether it's a CF page or API error.
+        // Include anthropic-client headers that Claude's SPA normally sends.
+        // Omit Cookie header (forbidden in browser fetch — WebKit sends it automatically).
         let js = """
             const r = await fetch('\(path)', {
                 credentials: 'include',
-                headers: { 'Accept': 'application/json' }
+                headers: {
+                    'Accept': 'application/json, text/plain, */*',
+                    'anthropic-client-version': '1.0.0',
+                    'anthropic-client-platform': 'web_claude_ai'
+                }
             });
             if (!r.ok) {
                 let body = '';
-                try { body = (await r.text()).substring(0, 120); } catch {}
+                try { body = (await r.text()).substring(0, 300); } catch {}
                 throw new Error('HTTP_' + r.status + ': ' + body);
             }
             return r.text();
@@ -66,7 +75,16 @@ final class WebKitAPIClient: NSObject, WKNavigationDelegate {
                 throw NetworkError.sessionExpired
             }
             if msg.contains("HTTP_403") {
-                contextReady = false   // force page reload + new CF challenge on next call
+                // Distinguish Cloudflare HTML (reset context) from Claude API JSON (don't reset).
+                if msg.contains("\"type\":\"error\"") || msg.contains("{\"type\":") {
+                    // Claude API permission error — CF is satisfied, don't reset context.
+                    if msg.contains("permission_error") || msg.contains("authorization") {
+                        throw NetworkError.permissionDenied
+                    }
+                    throw NetworkError.httpError(statusCode: 403)
+                }
+                // Cloudflare HTML 403 — need a new CF challenge.
+                contextReady = false
                 throw NetworkError.accessBlocked(detail: msg)
             }
             if msg.contains("HTTP_") { throw NetworkError.httpError(statusCode: extractStatus(msg)) }
