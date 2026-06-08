@@ -38,7 +38,7 @@ struct SetupView: View {
                     .kerning(0.8)
                     .padding(.bottom, 6)
 
-                SecureField("sk-ant-…", text: $rawKey)
+                SecureField("paste your session key…", text: $rawKey)
                     .textFieldStyle(.plain)
                     .font(.system(size: 12, design: .monospaced))
                     .foregroundStyle(.white)

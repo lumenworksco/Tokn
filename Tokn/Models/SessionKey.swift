@@ -1,13 +1,13 @@
 import Foundation
 
 enum SessionKeyError: LocalizedError {
-    case invalidFormat
+    case empty
     case tooShort
 
     var errorDescription: String? {
         switch self {
-        case .invalidFormat: return "Session key must start with 'sk-ant-'"
-        case .tooShort:      return "Session key is too short"
+        case .empty:    return "Session key cannot be empty"
+        case .tooShort: return "That doesn't look like a valid session key — make sure you're copying the full value"
         }
     }
 }
@@ -17,17 +17,19 @@ struct SessionKey: Equatable, Sendable {
 
     init(_ raw: String) throws {
         let extracted = Self.extract(from: raw)
-        guard let key = extracted else { throw SessionKeyError.invalidFormat }
-        guard key.hasPrefix("sk-ant-") else { throw SessionKeyError.invalidFormat }
-        guard key.count > 10 else { throw SessionKeyError.tooShort }
+        guard let key = extracted, !key.isEmpty else { throw SessionKeyError.empty }
+        guard key.count >= 20 else { throw SessionKeyError.tooShort }
         self.value = key
     }
 
     private static func extract(from raw: String) -> String? {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
-        if trimmed.hasPrefix("sk-ant-") { return trimmed }
 
+        // Already a bare token — no prefix needed, just return as-is
+        if !trimmed.contains("=") && !trimmed.contains(";") { return trimmed }
+
+        // User pasted a full cookie string: "sessionKey=sk-ant-..." or "sessionKey=sometoken"
         let pattern = #"(?i)sessionKey\s*=\s*([^;\s'"]+)"#
         guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
         let range = NSRange(trimmed.startIndex..., in: trimmed)
