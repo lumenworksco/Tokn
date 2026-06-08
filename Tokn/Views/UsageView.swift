@@ -1,4 +1,5 @@
 import SwiftUI
+import ServiceManagement
 
 private let bg      = Color(red: 0.085, green: 0.085, blue: 0.11)
 private let cardBg  = Color(white: 1, opacity: 0.055)
@@ -340,6 +341,26 @@ private struct SettingsPanel: View {
                 .controlSize(.mini)
                 .padding(.bottom, 14)
 
+                rowLabel("Startup")
+                Toggle(isOn: Binding(
+                    get: { appModel.settings.launchAtLogin },
+                    set: { newValue in
+                        appModel.settings.launchAtLogin = newValue
+                        if newValue {
+                            try? SMAppService.mainApp.register()
+                        } else {
+                            try? SMAppService.mainApp.unregister()
+                        }
+                    }
+                )) {
+                    Text("Launch at login")
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(Color(white: 0.55))
+                }
+                .toggleStyle(.switch)
+                .controlSize(.mini)
+                .padding(.bottom, 14)
+
                 div.frame(height: 1).padding(.bottom, 12)
 
                 if let error = clearError {
@@ -408,7 +429,14 @@ private struct SettingsPanel: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 9)
         }
-        .onAppear { selectedInterval = appModel.settings.refreshInterval }
+        .onAppear {
+            selectedInterval = appModel.settings.refreshInterval
+            // Sync toggle with actual system state in case user changed it outside the app
+            let registered = SMAppService.mainApp.status == .enabled
+            if appModel.settings.launchAtLogin != registered {
+                appModel.settings.launchAtLogin = registered
+            }
+        }
         .onChange(of: selectedInterval) { appModel.settings.setRefreshInterval(selectedInterval) }
     }
 
