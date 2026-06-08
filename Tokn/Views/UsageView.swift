@@ -9,7 +9,7 @@ private let accent  = Color(red: 0.55, green: 0.36, blue: 0.96)
 struct UsageView: View {
     let appModel: AppModel
     @State private var showSettings = false
-    @State private var refreshAngle: Double = 0
+    @State private var easterEggActive = false
 
     var body: some View {
         Group {
@@ -46,27 +46,37 @@ struct UsageView: View {
 
     private var header: some View {
         HStack {
-            Text("Tokn")
+            // Triple-tap the title for the easter egg
+            Text(easterEggActive ? "made with ♥" : "Tokn")
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(easterEggActive ? accent : .white)
+                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: easterEggActive)
+                .onTapGesture(count: 3) {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.65)) {
+                        easterEggActive = true
+                    }
+                    Task {
+                        try? await Task.sleep(for: .seconds(2))
+                        withAnimation(.easeOut(duration: 0.4)) { easterEggActive = false }
+                    }
+                }
+
             Spacer()
-            Button {
-                Task { await appModel.refresh(force: true) }
-            } label: {
-                Image(systemName: "arrow.clockwise")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(Color(white: 0.45))
-                    .frame(width: 16, height: 16)     // fixed square so rotation is always centred
-                    .rotationEffect(.degrees(refreshAngle))
+
+            // Native ProgressView when loading — always centred, never wobbles
+            Button { Task { await appModel.refresh(force: true) } } label: {
+                Group {
+                    if appModel.isLoading {
+                        ProgressView().controlSize(.mini)
+                    } else {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(Color(white: 0.45))
+                    }
+                }
+                .frame(width: 16, height: 16)
             }
             .buttonStyle(.plain)
-            .task(id: appModel.isLoading) {
-                guard appModel.isLoading else { return }
-                while !Task.isCancelled {
-                    withAnimation(.linear(duration: 0.7)) { refreshAngle += 360 }
-                    try? await Task.sleep(for: .milliseconds(700))
-                }
-            }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 11)
@@ -356,6 +366,9 @@ private struct SettingsPanel: View {
             div.frame(height: 1)
 
             HStack {
+                Text("v\(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?")")
+                    .font(.system(size: 9, design: .monospaced))
+                    .foregroundStyle(Color(white: 0.2))
                 Spacer()
                 Button("quit") { NSApplication.shared.terminate(nil) }
                     .font(.system(size: 11, design: .monospaced))
