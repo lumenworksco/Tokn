@@ -334,28 +334,43 @@ private struct SettingsPanel: View {
                         .padding(.bottom, 8)
                 }
 
-                Button(role: .destructive) { showClearConfirm = true } label: {
-                    HStack(spacing: 5) {
-                        Image(systemName: "trash").font(.system(size: 11))
-                        Text("remove session key")
+                // confirmationDialog doesn't work in MenuBarExtra NSPanel —
+                // use inline confirmation instead.
+                if showClearConfirm {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("remove session key?")
                             .font(.system(size: 11, design: .monospaced))
-                    }
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(Color(red: 1, green: 0.27, blue: 0.23).opacity(0.85))
-                .confirmationDialog("Remove session key?",
-                                    isPresented: $showClearConfirm,
-                                    titleVisibility: .visible) {
-                    Button("Remove", role: .destructive) {
-                        do {
-                            try appModel.clearSessionKey()
-                            showSettings = false
-                        } catch {
-                            clearError = error.localizedDescription
+                            .foregroundStyle(Color(white: 0.55))
+                        HStack(spacing: 10) {
+                            Button("confirm") {
+                                do {
+                                    try appModel.clearSessionKey()
+                                    showSettings = false
+                                } catch {
+                                    clearError = error.localizedDescription
+                                    showClearConfirm = false
+                                }
+                            }
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundStyle(Color(red: 1, green: 0.27, blue: 0.23).opacity(0.85))
+                            .buttonStyle(.plain)
+
+                            Button("cancel") { showClearConfirm = false }
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundStyle(Color(white: 0.38))
+                                .buttonStyle(.plain)
                         }
                     }
-                } message: {
-                    Text("You'll need to re-enter your session key to use Tokn.")
+                } else {
+                    Button { showClearConfirm = true } label: {
+                        HStack(spacing: 5) {
+                            Image(systemName: "trash").font(.system(size: 11))
+                            Text("remove session key")
+                                .font(.system(size: 11, design: .monospaced))
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Color(red: 1, green: 0.27, blue: 0.23).opacity(0.85))
                 }
             }
             .padding(.horizontal, 14)
