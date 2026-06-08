@@ -327,6 +327,21 @@ private struct SettingsPanel: View {
 
                 div.frame(height: 1).padding(.bottom, 12)
 
+                rowLabel("Notifications")
+                Toggle(isOn: Binding(
+                    get: { appModel.settings.notificationsEnabled },
+                    set: { appModel.settings.notificationsEnabled = $0 }
+                )) {
+                    Text("Alert at 80% and 100%")
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(Color(white: 0.55))
+                }
+                .toggleStyle(.switch)
+                .controlSize(.mini)
+                .padding(.bottom, 14)
+
+                div.frame(height: 1).padding(.bottom, 12)
+
                 if let error = clearError {
                     Text(error)
                         .font(.system(size: 10, design: .monospaced))

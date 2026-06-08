@@ -23,6 +23,7 @@ final class AppModel {
     private let usageService = UsageService()
     let updateChecker = UpdateChecker()
     let autoUpdater = AutoUpdater()
+    let notificationService = NotificationService()
 
     private var refreshTask: Task<Void, Never>?
 
@@ -34,6 +35,8 @@ final class AppModel {
             Task { await refresh(force: true) }
             startRefreshLoop()
         }
+
+        Task { await notificationService.requestPermission() }
 
         Task {
             guard let update = await updateChecker.check(), !update.url.isEmpty else { return }
@@ -57,6 +60,9 @@ final class AppModel {
                 return
             }
             usageData = try await usageService.fetchUsage(sessionKey: key, organizationId: orgId)
+            if let data = usageData {
+                notificationService.check(data, enabled: settings.notificationsEnabled)
+            }
         } catch {
             errorMessage = error.localizedDescription
         }

@@ -3,10 +3,12 @@ import Foundation
 struct AppSettings: Codable, Equatable, Sendable {
     var refreshInterval: TimeInterval
     var cachedOrganizationId: String?
+    var notificationsEnabled: Bool
 
     static let `default` = AppSettings(
         refreshInterval: 60,
-        cachedOrganizationId: nil
+        cachedOrganizationId: nil,
+        notificationsEnabled: true
     )
 
     mutating func setRefreshInterval(_ interval: TimeInterval) {
