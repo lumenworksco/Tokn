@@ -1,12 +1,13 @@
 import WebKit
 
-// Cloudflare on claude.ai blocks URLSession via TLS fingerprinting and also blocks
-// WKWebView with a private cookie store (missing cf_clearance) and wrong User-Agent.
+// Cloudflare protects claude.ai with a JS challenge that sets a cf_clearance cookie.
+// URLSession and WKWebView with a bare data store both lack this cookie → 403.
 //
-// Fix: use the system-default WebKit data store (shared with Safari — contains the
-// real cf_clearance and other Cloudflare cookies), set a Safari User-Agent, and
-// load an actual claude.ai page before making API calls so all requests come from
-// a real, Cloudflare-trusted document context.
+// Fix: navigate the WKWebView to https://claude.ai/ so Cloudflare runs its JS
+// challenge in WebKit's full engine and sets cf_clearance in our cookie store.
+// After that, all fetch() calls from within the loaded page carry cf_clearance
+// and are accepted. On a 403, contextReady is reset so the next call re-runs the
+// challenge rather than retrying without the cookie.
 @MainActor
 final class WebKitAPIClient: NSObject, WKNavigationDelegate {
 
@@ -16,13 +17,10 @@ final class WebKitAPIClient: NSObject, WKNavigationDelegate {
 
     override init() {
         let config = WKWebViewConfiguration()
-        // Default store shares cookies with Safari, including cf_clearance issued
-        // to the user's real browser sessions on claude.ai.
-        config.websiteDataStore = .default()
         webView = WKWebView(frame: CGRect(x: 0, y: 0, width: 1, height: 1), configuration: config)
         super.init()
         webView.navigationDelegate = self
-        // Present as Safari so Cloudflare's bot detection accepts the requests.
+        // Match Safari's User-Agent — Cloudflare checks for the Version/X Safari/X suffix.
         webView.customUserAgent =
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) " +
             "AppleWebKit/605.1.15 (KHTML, like Gecko) " +
@@ -33,12 +31,17 @@ final class WebKitAPIClient: NSObject, WKNavigationDelegate {
         await injectSessionCookie(sessionKey)
         if !contextReady { await loadContext() }
 
+        // Include response body in error so we can see whether it's a CF page or API error.
         let js = """
             const r = await fetch('\(path)', {
                 credentials: 'include',
                 headers: { 'Accept': 'application/json' }
             });
-            if (!r.ok) throw new Error('HTTP_' + r.status);
+            if (!r.ok) {
+                let body = '';
+                try { body = (await r.text()).substring(0, 120); } catch {}
+                throw new Error('HTTP_' + r.status + ': ' + body);
+            }
             return r.text();
         """
 
@@ -56,17 +59,22 @@ final class WebKitAPIClient: NSObject, WKNavigationDelegate {
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .iso8601
             return try decoder.decode(T.self, from: data)
+
         case .failure(let err):
             let msg = (err as NSError).userInfo["WKJavaScriptExceptionMessage"] as? String ?? err.localizedDescription
-            if msg.contains("HTTP_401") { throw NetworkError.sessionExpired }
-            if msg.contains("HTTP_403") { throw NetworkError.accessBlocked }
+            if msg.contains("HTTP_401") {
+                throw NetworkError.sessionExpired
+            }
+            if msg.contains("HTTP_403") {
+                contextReady = false   // force page reload + new CF challenge on next call
+                throw NetworkError.accessBlocked(detail: msg)
+            }
             if msg.contains("HTTP_") { throw NetworkError.httpError(statusCode: extractStatus(msg)) }
             throw NetworkError.networkUnavailable
         }
     }
 
-    // Inject (or replace) the session cookie. Goes into the shared Safari store,
-    // alongside cf_clearance and other cookies Cloudflare expects.
+    // Inject (or replace) the session cookie so claude.ai sees us as logged in.
     private func injectSessionCookie(_ value: String) async {
         let store = webView.configuration.websiteDataStore.httpCookieStore
         for old in await store.allCookies() where old.name == "sessionKey" {
@@ -80,17 +88,17 @@ final class WebKitAPIClient: NSObject, WKNavigationDelegate {
         await store.setCookie(cookie)
     }
 
-    // Load a real, lightweight page from claude.ai so subsequent fetch() calls
-    // originate from a genuine claude.ai document context (not a local string).
+    // Navigate to claude.ai's main page. Cloudflare runs its JS challenge in WebKit,
+    // sets cf_clearance, and only then does didFinish fire. All subsequent fetch()
+    // calls within this WKWebView carry the valid cf_clearance.
     private func loadContext() async {
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             pageLoadContinuation = continuation
-            let req = URLRequest(
-                url: URL(string: "https://claude.ai/robots.txt")!,
+            webView.load(URLRequest(
+                url: URL(string: "https://claude.ai/")!,
                 cachePolicy: .reloadIgnoringLocalCacheData,
-                timeoutInterval: 15
-            )
-            webView.load(req)
+                timeoutInterval: 30
+            ))
         }
     }
 
@@ -108,8 +116,6 @@ final class WebKitAPIClient: NSObject, WKNavigationDelegate {
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-        // Even if the page itself fails (e.g. 403 on robots.txt), mark context ready
-        // and let the fetch() call surface the real error.
         contextReady = true
         pageLoadContinuation?.resume()
         pageLoadContinuation = nil
