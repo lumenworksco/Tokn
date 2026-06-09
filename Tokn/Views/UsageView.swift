@@ -217,6 +217,7 @@ private struct UsageCard: View {
     @State private var displayed: Double
     @State private var fillFraction: Double
     @State private var showHistory = false
+    @State private var showPrecisePct = false
 
     init(icon: String, title: String, limit: UsageLimit,
          history: [UsagePoint], pct: KeyPath<UsagePoint, Double>) {
@@ -286,11 +287,24 @@ private struct UsageCard: View {
                         ? limit.status.color.opacity(0.75)
                         : Color(white: 0.28))
                 Spacer()
+                // Triple-tap the status indicator to reveal exact decimal precision
                 HStack(spacing: 3) {
                     Circle().fill(limit.status.color).frame(width: 5, height: 5)
-                    Text(limit.status.label.lowercased())
+                    Text(showPrecisePct
+                        ? String(format: "%.1f%%", limit.utilization)
+                        : limit.status.label.lowercased())
                         .font(.system(size: 10, weight: .medium, design: .monospaced))
                         .foregroundStyle(limit.status.color.opacity(0.8))
+                        .contentTransition(.numericText())
+                        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: showPrecisePct)
+                }
+                .onTapGesture(count: 3) {
+                    guard !showPrecisePct else { return }
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.65)) { showPrecisePct = true }
+                    Task {
+                        try? await Task.sleep(for: .seconds(2))
+                        withAnimation(.easeOut(duration: 0.4)) { showPrecisePct = false }
+                    }
                 }
             }
         }
