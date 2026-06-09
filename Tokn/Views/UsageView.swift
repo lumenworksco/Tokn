@@ -323,14 +323,14 @@ private struct UsageCard: View {
     }
 
     // Least-squares linear regression (% per hour) over the last 30 min.
-    // Requires a real span of ≥15 min to avoid extrapolating from noise.
+    // Requires 3+ points spanning ≥5 min; least-squares smooths individual spikes.
     private func burnRatePerHour() -> Double? {
         let now = Date()
         let recent = history.filter { now.timeIntervalSince($0.date) <= 30 * 60 }
-        guard recent.count >= 2,
+        guard recent.count >= 3,
               let first = recent.first, let last = recent.last else { return nil }
         let span = last.date.timeIntervalSince(first.date) / 3600
-        guard span >= 0.25 else { return nil }  // < 15 min → too noisy
+        guard span >= 5.0 / 60.0 else { return nil }  // < 5 min → too noisy
         let xs = recent.map { $0.date.timeIntervalSince(first.date) / 3600 }
         let ys = recent.map { $0[keyPath: pct] }
         let n  = Double(recent.count)
