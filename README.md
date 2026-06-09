@@ -40,7 +40,7 @@ Track your Claude.ai session and weekly usage from the macOS menu bar — built 
 - **Weekly (7d)** — usage across the current 7-day window
 - Colour-coded status: green (safe) → orange (≥50%) → red (≥80%)
 - Menu bar dot updates colour in real time so you can tell at a glance without opening the popover
-- **Burn rate ETA** — when you're consuming fast enough to hit the limit before the window resets, the card shows "~2h at this pace" (least-squares regression over the last 30 min; suppressed if the window resets first)
+- **Burn rate ETA** — when you're on track to hit the limit before the window resets, the card footer shows "~2h at this pace"; disappears automatically when usage slows or the window resets first (appears after a few minutes of use)
 - **Usage history chart** — tap the sparkline on any card to expand a full history chart with dashed warning/critical threshold lines and a time-span label
 - **Smart notifications** — configurable first threshold (50–90%) plus a fixed 100% alert; resets automatically when usage drops so future spikes notify again
 - **Auto-updates** — checks for new versions on launch and installs them in one click
