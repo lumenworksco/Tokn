@@ -97,9 +97,9 @@ struct UsageView: View {
         } else if let data = appModel.usageData {
             VStack(spacing: 8) {
                 UsageCard(icon: "timer",    title: "5h Session", limit: data.sessionUsage,
-                          history: history.map(\.sessionPct))
+                          history: history, pct: \.sessionPct)
                 UsageCard(icon: "calendar", title: "Weekly",     limit: data.weeklyUsage,
-                          history: history.map(\.weeklyPct))
+                          history: history, pct: \.weeklyPct)
             }
             .padding(10)
         } else {
@@ -210,17 +210,20 @@ private struct UsageCard: View {
     let icon: String
     let title: String
     let limit: UsageLimit
-    let history: [Double]
+    let history: [UsagePoint]
+    let pct: KeyPath<UsagePoint, Double>
 
     // Initialised from limit so the card never starts at 0 on (re-)appear
     @State private var displayed: Double
     @State private var fillFraction: Double
 
-    init(icon: String, title: String, limit: UsageLimit, history: [Double]) {
+    init(icon: String, title: String, limit: UsageLimit,
+         history: [UsagePoint], pct: KeyPath<UsagePoint, Double>) {
         self.icon    = icon
         self.title   = title
         self.limit   = limit
         self.history = history
+        self.pct     = pct
         _displayed    = State(initialValue: limit.utilization)
         _fillFraction = State(initialValue: min(limit.utilization / 100, 1))
     }
@@ -259,15 +262,17 @@ private struct UsageCard: View {
 
             // Sparkline — only shown once we have enough history
             if history.count >= 3 {
-                SparklineView(points: history, color: limit.status.color)
+                SparklineView(points: history.map { $0[keyPath: pct] }, color: limit.status.color)
                     .frame(height: 22)
             }
 
-            // Reset + status row
+            // Reset + status row (ETA replaces reset time when limit is hit before the window resets)
             HStack {
-                Text(limit.resetDescription)
+                Text(etaDescription ?? limit.resetDescription)
                     .font(.system(size: 10, design: .monospaced))
-                    .foregroundStyle(Color(white: 0.28))
+                    .foregroundStyle(etaDescription != nil
+                        ? limit.status.color.opacity(0.75)
+                        : Color(white: 0.28))
                 Spacer()
                 HStack(spacing: 3) {
                     Circle().fill(limit.status.color).frame(width: 5, height: 5)
@@ -288,6 +293,43 @@ private struct UsageCard: View {
             displayed    = newVal
             fillFraction = min(newVal / 100, 1)
         }
+    }
+
+    // ETA shown only when the limit would be hit before the window resets, using
+    // a least-squares slope over the last 30 min so momentary bursts don't mislead.
+    private var etaDescription: String? {
+        guard let rate = burnRatePerHour(), rate >= 1.0 else { return nil }
+        let hoursLeft = (100.0 - limit.utilization) / rate
+        guard hoursLeft > 0, hoursLeft <= 24 else { return nil }
+        // Suppress when the window resets before the limit is hit — would be misleading
+        let hoursToReset = max(0, limit.resetAt.timeIntervalSinceNow) / 3600
+        guard hoursLeft < hoursToReset else { return nil }
+        if hoursLeft < 1.0 / 60.0 { return "limit imminent" }
+        if hoursLeft < 1 { return "~\(max(1, Int(hoursLeft * 60)))m at this pace" }
+        let h = Int(hoursLeft)
+        let m = Int((hoursLeft - Double(h)) * 60)
+        return m == 0 ? "~\(h)h at this pace" : "~\(h)h \(m)m at this pace"
+    }
+
+    // Least-squares linear regression (% per hour) over the last 30 min.
+    // Requires a real span of ≥15 min to avoid extrapolating from noise.
+    private func burnRatePerHour() -> Double? {
+        let now = Date()
+        let recent = history.filter { now.timeIntervalSince($0.date) <= 30 * 60 }
+        guard recent.count >= 2,
+              let first = recent.first, let last = recent.last else { return nil }
+        let span = last.date.timeIntervalSince(first.date) / 3600
+        guard span >= 0.25 else { return nil }  // < 15 min → too noisy
+        let xs = recent.map { $0.date.timeIntervalSince(first.date) / 3600 }
+        let ys = recent.map { $0[keyPath: pct] }
+        let n  = Double(recent.count)
+        let sumX  = xs.reduce(0, +)
+        let sumY  = ys.reduce(0, +)
+        let sumXY = zip(xs, ys).reduce(0.0) { $0 + $1.0 * $1.1 }
+        let sumXX = xs.reduce(0.0) { $0 + $1 * $1 }
+        let denom = n * sumXX - sumX * sumX
+        guard abs(denom) > 1e-9 else { return nil }
+        return (n * sumXY - sumX * sumY) / denom
     }
 }
 
