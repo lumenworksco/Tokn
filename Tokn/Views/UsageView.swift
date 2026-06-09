@@ -230,6 +230,7 @@ private struct UsageCard: View {
     }
 
     var body: some View {
+        let eta = etaDescription
         VStack(alignment: .leading, spacing: 7) {
             // Title + percentage row
             HStack(spacing: 5) {
@@ -279,9 +280,9 @@ private struct UsageCard: View {
 
             // Reset + status row (ETA replaces reset time when limit is hit before the window resets)
             HStack {
-                Text(etaDescription ?? limit.resetDescription)
+                Text(eta ?? limit.resetDescription)
                     .font(.system(size: 10, design: .monospaced))
-                    .foregroundStyle(etaDescription != nil
+                    .foregroundStyle(eta != nil
                         ? limit.status.color.opacity(0.75)
                         : Color(white: 0.28))
                 Spacer()
