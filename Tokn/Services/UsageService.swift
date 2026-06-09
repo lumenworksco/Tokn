@@ -33,10 +33,31 @@ final class UsageService {
             "\(baseURL)/organizations",
             sessionKey: key.value
         )
-        guard let first = orgs.first else {
+        guard !orgs.isEmpty else {
             throw AppError.organizationNotFound
         }
-        return first.uuid
+        // Accounts can belong to multiple orgs (personal + team memberships).
+        // Try each org's usage endpoint and return the first one that succeeds,
+        // so we don't accidentally cache a team org where the user lacks access.
+        for org in orgs {
+            do {
+                let _: UsageAPIResponse = try await network.get(
+                    "\(baseURL)/organizations/\(org.uuid)/usage",
+                    sessionKey: key.value
+                )
+                return org.uuid
+            } catch let err as NetworkError {
+                switch err {
+                case .sessionExpired:
+                    throw AppError.authenticationFailed
+                case .accessBlocked, .permissionDenied, .httpError:
+                    continue  // This org denied access; try the next one.
+                default:
+                    throw AppError.networkError(err)
+                }
+            }
+        }
+        throw AppError.usageAccessDenied
     }
 
     func fetchUsage(sessionKey: String, organizationId: String) async throws -> UsageData {

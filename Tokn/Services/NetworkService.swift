@@ -31,6 +31,11 @@ actor NetworkService {
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 30
         config.timeoutIntervalForResource = 30
+        // Don't let URLSession merge cookies from the system store into our requests.
+        // We set the Cookie header manually, so any automatic cookie injection could
+        // send a stale session key alongside ours and confuse the server.
+        config.httpShouldSetCookies = false
+        config.httpCookieAcceptPolicy = .never
         self.session = URLSession(configuration: config)
     }
 
