@@ -40,6 +40,9 @@ Track your Claude.ai session and weekly usage from the macOS menu bar — built 
 - **Weekly (7d)** — usage across the current 7-day window
 - Colour-coded status: green (safe) → orange (≥50%) → red (≥80%)
 - Menu bar dot updates colour in real time so you can tell at a glance without opening the popover
+- **Burn rate ETA** — when you're consuming fast enough to hit the limit before the window resets, the card shows "~2h at this pace" (least-squares regression over the last 30 min; suppressed if the window resets first)
+- **Usage history chart** — tap the sparkline on any card to expand a full history chart with dashed warning/critical threshold lines and a time-span label
+- **Smart notifications** — configurable first threshold (50–90%) plus a fixed 100% alert; resets automatically when usage drops so future spikes notify again
 - **Auto-updates** — checks for new versions on launch and installs them in one click
 
 ---
@@ -62,9 +65,11 @@ Your session key is stored **only in the macOS Keychain** — never written to d
 |--------|-----|
 | Open popover | Click the Tokn dot/percentage in your menu bar |
 | Refresh now | Click the **↻** button in the top-right of the popover |
-| Change refresh interval | **Settings** → Refresh interval |
+| Expand history chart | Tap the sparkline on any card |
+| Change refresh interval | **Settings** → Refresh |
+| Change notification threshold | **Settings** → Notifications → threshold picker |
 | Remove session key | **Settings** → Remove session key |
-| Quit | Click **Quit** in the popover footer |
+| Quit | **quit** in the popover footer |
 
 ---
 
