@@ -26,6 +26,7 @@ struct UsageView: View {
         .animation(.spring(response: 0.3, dampingFraction: 0.9), value: showSettings)
         .frame(width: 280)
         .background(bg)
+        .clipped()
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignKeyNotification)) { _ in showSettings = false }
         .onAppear { history = appModel.historyService.load() }
         .onChange(of: appModel.usageData) { _, _ in history = appModel.historyService.load() }
@@ -338,8 +339,7 @@ private struct SettingsPanel: View {
                 Picker("", selection: $selectedInterval) {
                     ForEach(intervals, id: \.value) { Text($0.label).tag($0.value) }
                 }
-                .pickerStyle(.menu)
-                .labelsHidden()
+                .pickerStyle(.segmented)
                 .padding(.bottom, 14)
 
                 div.frame(height: 1).padding(.bottom, 12)

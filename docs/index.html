@@ -170,45 +170,41 @@
     }
     .popup-header {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 16px 18px 14px;
+      padding: 12px 14px 11px;
       border-bottom: 1px solid rgba(255,255,255,0.07);
     }
-    .popup-title { font-size: 16px; font-weight: 700; color: #fff; }
-    .popup-refresh { color: rgba(255,255,255,0.35); font-size: 14px; }
-    .popup-cards { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+    .popup-title { font-size: 14px; font-weight: 600; color: #fff; }
+    .popup-refresh { color: rgba(255,255,255,0.35); font-size: 13px; }
+    .popup-cards { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
     .pcard {
       background: rgba(255,255,255,0.05);
-      border-radius: 11px; padding: 14px;
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 9px; padding: 10px 12px;
     }
-    .pcard-header {
-      display: flex; align-items: center; justify-content: space-between;
-      margin-bottom: 10px;
+    .pcard-top {
+      display: flex; align-items: center; gap: 5px;
+      margin-bottom: 6px;
     }
-    .pcard-label {
-      display: flex; align-items: center; gap: 6px;
-      font-size: 13px; font-weight: 700; color: #fff;
-    }
-    .pcard-icon { color: var(--green); font-size: 13px; }
-    .pbadge {
-      display: flex; align-items: center; gap: 4px;
-      font-size: 11px; font-weight: 600; color: var(--green);
-      background: rgba(56,255,106,0.12);
-      padding: 3px 8px; border-radius: 100px;
-    }
-    .pct { font-size: 36px; font-weight: 700; color: var(--green); line-height: 1.1; margin-bottom: 8px; }
+    .pcard-icon { font-size: 11px; color: rgba(255,255,255,0.38); }
+    .pcard-name { font-size: 12px; font-weight: 500; color: rgba(255,255,255,0.62); flex: 1; }
+    .pcard-pct  { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
     .pbar-track {
-      height: 7px; border-radius: 100px;
-      background: rgba(255,255,255,0.08); overflow: hidden; margin-bottom: 7px;
+      height: 4px; border-radius: 100px;
+      background: rgba(255,255,255,0.08); overflow: hidden; margin-bottom: 6px;
     }
-    .pbar-fill {
-      height: 100%; border-radius: 100px; background: var(--green);
-    }
-    .preset { font-size: 11px; color: rgba(255,255,255,0.35); display: flex; align-items: center; gap: 4px; }
+    .pbar-fill { height: 100%; border-radius: 100px; }
+    .sparkline  { width: 100%; height: 20px; display: block; margin-bottom: 6px; }
+    .pcard-foot { display: flex; align-items: center; justify-content: space-between; }
+    .pcard-reset { font-size: 10px; color: rgba(255,255,255,0.28); font-family: 'SF Mono', 'Menlo', monospace; }
+    .pcard-status { display: flex; align-items: center; gap: 3px; }
+    .status-dot  { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+    .status-lbl  { font-size: 10px; font-weight: 500; font-family: 'SF Mono', 'Menlo', monospace; }
     .popup-footer {
       display: flex; justify-content: space-between; align-items: center;
-      padding: 10px 18px 14px;
+      padding: 8px 14px 12px;
       border-top: 1px solid rgba(255,255,255,0.07);
-      font-size: 13px; font-weight: 500; color: #fff;
+      font-size: 11px; font-weight: 400; color: rgba(255,255,255,0.38);
+      font-family: 'SF Mono', 'Menlo', monospace;
     }
 
     /* ── Features ── */
@@ -325,7 +321,7 @@
       <div class="menubar-strip">
         <div class="mb-tokn">
           <div class="mb-dot" id="mb-dot"></div>
-          <span id="mb-pct">68%</span>
+          <span id="mb-pct">42%</span>
         </div>
         <div style="opacity:.3">●●●</div>
       </div>
@@ -336,31 +332,47 @@
         </div>
         <div class="popup-cards">
           <div class="pcard">
-            <div class="pcard-header">
-              <div class="pcard-label">
-                <span class="pcard-icon">⏱</span> 5-Hour Session
-              </div>
-              <div class="pbadge">✓ Safe</div>
+            <div class="pcard-top">
+              <span class="pcard-icon">⏱</span>
+              <span class="pcard-name">5h Session</span>
+              <span class="pcard-pct" id="session-pct" style="color:#38ff6a">42%</span>
             </div>
-            <div class="pct" id="session-pct">68%</div>
-            <div class="pbar-track"><div class="pbar-fill" id="session-bar" style="width:68%"></div></div>
-            <div class="preset">🕐 Resets in 1 hour 44 minutes</div>
+            <div class="pbar-track"><div class="pbar-fill" id="session-bar" style="width:42%;background:#38ff6a"></div></div>
+            <svg class="sparkline" viewBox="0 0 200 20" preserveAspectRatio="none">
+              <path d="M0,16 25,15 50,16 75,14 100,13 125,12 150,11 175,10 200,9" fill="none" id="session-spark-stroke" stroke="#38ff6a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.65"/>
+              <path d="M0,16 25,15 50,16 75,14 100,13 125,12 150,11 175,10 200,9 L200,20 L0,20 Z" id="session-spark-fill" fill="#38ff6a" opacity="0.1"/>
+            </svg>
+            <div class="pcard-foot">
+              <span class="pcard-reset">Resets in 1 hour</span>
+              <span class="pcard-status">
+                <span class="status-dot" id="session-dot" style="background:#38ff6a"></span>
+                <span class="status-lbl" id="session-label" style="color:#38ff6a">safe</span>
+              </span>
+            </div>
           </div>
           <div class="pcard">
-            <div class="pcard-header">
-              <div class="pcard-label">
-                <span class="pcard-icon">📅</span> Weekly Usage
-              </div>
-              <div class="pbadge">✓ Safe</div>
+            <div class="pcard-top">
+              <span class="pcard-icon">📅</span>
+              <span class="pcard-name">Weekly</span>
+              <span class="pcard-pct" style="color:#38ff6a">37%</span>
             </div>
-            <div class="pct">37%</div>
-            <div class="pbar-track"><div class="pbar-fill" style="width:37%"></div></div>
-            <div class="preset">🕐 Resets in 3 days 23 hours</div>
+            <div class="pbar-track"><div class="pbar-fill" style="width:37%;background:#38ff6a"></div></div>
+            <svg class="sparkline" viewBox="0 0 200 20" preserveAspectRatio="none">
+              <path d="M0,16 25,16 50,17 75,15 100,16 125,15 150,15 175,15 200,14" fill="none" stroke="#38ff6a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.65"/>
+              <path d="M0,16 25,16 50,17 75,15 100,16 125,15 150,15 175,15 200,14 L200,20 L0,20 Z" fill="#38ff6a" opacity="0.1"/>
+            </svg>
+            <div class="pcard-foot">
+              <span class="pcard-reset">Resets in 3 days</span>
+              <span class="pcard-status">
+                <span class="status-dot" style="background:#38ff6a"></span>
+                <span class="status-lbl" style="color:#38ff6a">safe</span>
+              </span>
+            </div>
           </div>
         </div>
         <div class="popup-footer">
-          <span>Settings</span>
-          <span>Quit</span>
+          <span>settings</span>
+          <span>quit</span>
         </div>
       </div>
     </div>
@@ -392,7 +404,7 @@
     <div class="feature-card reveal">
       <div class="feature-icon">🔍</div>
       <h3>Fully auditable</h3>
-      <p>16 Swift files, zero third-party dependencies. The entire network layer fits in one file — read exactly what requests are made and what headers are sent.</p>
+      <p>~20 Swift files, zero third-party dependencies. The entire network layer fits in one file — read exactly what requests are made and what headers are sent.</p>
     </div>
     <div class="feature-card reveal">
       <div class="feature-icon">⚡</div>
@@ -450,35 +462,48 @@
   );
   document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
 
-  // Animate session percentage in the mockup
+  // Animate session percentage in the mockup (green → orange ≥50% → red ≥80%)
   (function() {
-    const pctEl  = document.getElementById('session-pct');
-    const barEl  = document.getElementById('session-bar');
-    const mbPct  = document.getElementById('mb-pct');
-    const mbDot  = document.getElementById('mb-dot');
+    const pctEl   = document.getElementById('session-pct');
+    const barEl   = document.getElementById('session-bar');
+    const dotEl   = document.getElementById('session-dot');
+    const lblEl   = document.getElementById('session-label');
+    const mbPct   = document.getElementById('mb-pct');
+    const mbDot   = document.getElementById('mb-dot');
+    const spkLine = document.getElementById('session-spark-stroke');
+    const spkFill = document.getElementById('session-spark-fill');
 
-    const START = 68, END = 95;
-    const DURATION = 8000;
+    const START = 42, END = 96;
+    const DURATION = 10000;
     let t0 = null;
+
+    function statusColor(val) {
+      return val >= 80 ? '#ff453b' : (val >= 50 ? '#ff9e0a' : '#38ff6a');
+    }
+    function statusLabel(val) {
+      return val >= 80 ? 'critical' : (val >= 50 ? 'warning' : 'safe');
+    }
 
     function tick(ts) {
       if (!t0) t0 = ts;
       const p   = Math.min((ts - t0) / DURATION, 1);
       const val = Math.round(START + (END - START) * p);
       const pct = val + '%';
+      const c   = statusColor(val);
+      const lbl = statusLabel(val);
 
-      pctEl.textContent  = pct;
-      mbPct.textContent  = pct;
-      barEl.style.width  = pct;
-
-      // Colour shifts at 80%
-      const color = val >= 80
-        ? (val >= 95 ? '#ff4540' : '#ff9f0a')
-        : '#38ff6a';
-      pctEl.style.color     = color;
-      barEl.style.background = color;
-      mbDot.style.background = color;
-      mbDot.style.boxShadow  = `0 0 6px ${color}`;
+      pctEl.textContent      = pct;
+      pctEl.style.color      = c;
+      barEl.style.width      = pct;
+      barEl.style.background = c;
+      dotEl.style.background = c;
+      lblEl.textContent      = lbl;
+      lblEl.style.color      = c;
+      mbPct.textContent      = pct;
+      mbDot.style.background = c;
+      mbDot.style.boxShadow  = `0 0 6px ${c}`;
+      if (spkLine) spkLine.setAttribute('stroke', c);
+      if (spkFill) spkFill.setAttribute('fill', c);
 
       if (p < 1) requestAnimationFrame(tick);
       else { setTimeout(() => { t0 = null; requestAnimationFrame(tick); }, 2000); }

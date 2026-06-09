@@ -9,7 +9,7 @@ final class NotificationService {
     private var notifiedAt: [String: Int] = [:]
 
     func requestPermission() async {
-        try? await UNUserNotificationCenter.current()
+        _ = try? await UNUserNotificationCenter.current()
             .requestAuthorization(options: [.alert, .sound])
     }
 
