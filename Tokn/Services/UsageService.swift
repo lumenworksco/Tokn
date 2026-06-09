@@ -4,16 +4,18 @@ enum AppError: LocalizedError {
     case noSessionKey
     case authenticationFailed
     case organizationNotFound
+    case usageAccessDenied
     case networkError(NetworkError)
     case unknown(Error)
 
     var errorDescription: String? {
         switch self {
-        case .noSessionKey:             return "No session key saved. Click to set up."
-        case .authenticationFailed:     return "Session key invalid or expired. Please re-enter."
-        case .organizationNotFound:     return "Could not find your Claude organization."
-        case .networkError(let e):      return e.localizedDescription
-        case .unknown(let e):           return e.localizedDescription
+        case .noSessionKey:          return "No session key saved. Click to set up."
+        case .authenticationFailed:  return "Session key invalid or expired. Please re-enter."
+        case .organizationNotFound:  return "Could not find your Claude organization."
+        case .usageAccessDenied:     return "Usage data unavailable. Your account may not support the usage API (Pro subscription required)."
+        case .networkError(let e):   return e.localizedDescription
+        case .unknown(let e):        return e.localizedDescription
         }
     }
 }

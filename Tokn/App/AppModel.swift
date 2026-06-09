@@ -69,7 +69,12 @@ final class AppModel {
                 // Cached org ID may be stale — re-validate and retry once.
                 let freshOrgId = try await usageService.validateKey(try SessionKey(key))
                 settings.cachedOrganizationId = freshOrgId
-                usageData = try await usageService.fetchUsage(sessionKey: key, organizationId: freshOrgId)
+                do {
+                    usageData = try await usageService.fetchUsage(sessionKey: key, organizationId: freshOrgId)
+                } catch AppError.organizationNotFound {
+                    // Correct org ID confirmed but still 403 — account lacks usage API access.
+                    throw AppError.usageAccessDenied
+                }
             }
             if let data = usageData {
                 notificationService.check(data, enabled: settings.notificationsEnabled)
