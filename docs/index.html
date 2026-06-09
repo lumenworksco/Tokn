@@ -195,7 +195,9 @@
     .pbar-fill { height: 100%; border-radius: 100px; }
     .sparkline  { width: 100%; height: 20px; display: block; margin-bottom: 6px; }
     .pcard-foot { display: flex; align-items: center; justify-content: space-between; }
+    .pcard-foot-left { display: flex; flex-direction: column; gap: 2px; }
     .pcard-reset { font-size: 10px; color: rgba(255,255,255,0.28); font-family: 'SF Mono', 'Menlo', monospace; }
+    .pcard-eta  { font-size: 10px; font-family: 'SF Mono', 'Menlo', monospace; display: none; }
     .pcard-status { display: flex; align-items: center; gap: 3px; }
     .status-dot  { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
     .status-lbl  { font-size: 10px; font-weight: 500; font-family: 'SF Mono', 'Menlo', monospace; }
@@ -343,7 +345,10 @@
               <path d="M0,16 25,15 50,16 75,14 100,13 125,12 150,11 175,10 200,9 L200,20 L0,20 Z" id="session-spark-fill" fill="#38ff6a" opacity="0.1"/>
             </svg>
             <div class="pcard-foot">
-              <span class="pcard-reset">Resets in 1 hour</span>
+              <div class="pcard-foot-left">
+                <span class="pcard-reset">Resets in 1 hour</span>
+                <span class="pcard-eta" id="session-eta">~2h at this pace</span>
+              </div>
               <span class="pcard-status">
                 <span class="status-dot" id="session-dot" style="background:#38ff6a"></span>
                 <span class="status-lbl" id="session-label" style="color:#38ff6a">safe</span>
@@ -424,7 +429,7 @@
     <div class="feature-card reveal">
       <div class="feature-icon">📈</div>
       <h3>Usage trend &amp; ETA</h3>
-      <p>Tap the sparkline on any card to expand a full history chart with warning and critical threshold markers. After a few minutes of use, the card footer shows a live ETA — "~2h at this pace" — when you're on track to hit the limit before the window resets.</p>
+      <p>Tap the sparkline on any card to expand a full history chart with warning and critical threshold markers. After a few minutes of use, the card footer shows both the reset time and a live burn-rate ETA — "~2h at this pace" — simultaneously, when you're on track to hit the limit before the window resets.</p>
     </div>
     <div class="feature-card reveal">
       <div class="feature-icon">🔔</div>
@@ -478,6 +483,7 @@
     const barEl   = document.getElementById('session-bar');
     const dotEl   = document.getElementById('session-dot');
     const lblEl   = document.getElementById('session-label');
+    const etaEl   = document.getElementById('session-eta');
     const mbPct   = document.getElementById('mb-pct');
     const mbDot   = document.getElementById('mb-dot');
     const spkLine = document.getElementById('session-spark-stroke');
@@ -514,6 +520,14 @@
       mbDot.style.boxShadow  = `0 0 6px ${c}`;
       if (spkLine) spkLine.setAttribute('stroke', c);
       if (spkFill) spkFill.setAttribute('fill', c);
+      if (etaEl) {
+        if (val >= 60) {
+          etaEl.style.display = '';
+          etaEl.style.color   = c;
+        } else {
+          etaEl.style.display = 'none';
+        }
+      }
 
       if (p < 1) requestAnimationFrame(tick);
       else { setTimeout(() => { t0 = null; requestAnimationFrame(tick); }, 2000); }
