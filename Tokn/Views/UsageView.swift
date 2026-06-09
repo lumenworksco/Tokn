@@ -279,32 +279,37 @@ private struct UsageCard: View {
                 }
             }
 
-            // Reset + status row (ETA replaces reset time when limit is hit before the window resets)
-            HStack {
-                Text(eta ?? limit.resetDescription)
-                    .font(.system(size: 10, design: .monospaced))
-                    .foregroundStyle(eta != nil
-                        ? limit.status.color.opacity(0.75)
-                        : Color(white: 0.28))
-                Spacer()
-                // Triple-tap the status indicator to reveal exact decimal precision
-                HStack(spacing: 3) {
-                    Circle().fill(limit.status.color).frame(width: 5, height: 5)
-                    Text(showPrecisePct
-                        ? String(format: "%.1f%%", limit.utilization)
-                        : limit.status.label.lowercased())
-                        .font(.system(size: 10, weight: .medium, design: .monospaced))
-                        .foregroundStyle(limit.status.color.opacity(0.8))
-                        .contentTransition(.numericText())
-                        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: showPrecisePct)
-                }
-                .onTapGesture(count: 3) {
-                    guard !showPrecisePct else { return }
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.65)) { showPrecisePct = true }
-                    Task {
-                        try? await Task.sleep(for: .seconds(2))
-                        withAnimation(.easeOut(duration: 0.4)) { showPrecisePct = false }
+            // Reset time + status dot always visible; ETA appears as a second line when available
+            VStack(alignment: .leading, spacing: 2) {
+                HStack {
+                    Text(limit.resetDescription)
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(Color(white: 0.28))
+                    Spacer()
+                    // Triple-tap the status indicator to reveal exact decimal precision
+                    HStack(spacing: 3) {
+                        Circle().fill(limit.status.color).frame(width: 5, height: 5)
+                        Text(showPrecisePct
+                            ? String(format: "%.1f%%", limit.utilization)
+                            : limit.status.label.lowercased())
+                            .font(.system(size: 10, weight: .medium, design: .monospaced))
+                            .foregroundStyle(limit.status.color.opacity(0.8))
+                            .contentTransition(.numericText())
+                            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: showPrecisePct)
                     }
+                    .onTapGesture(count: 3) {
+                        guard !showPrecisePct else { return }
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.65)) { showPrecisePct = true }
+                        Task {
+                            try? await Task.sleep(for: .seconds(2))
+                            withAnimation(.easeOut(duration: 0.4)) { showPrecisePct = false }
+                        }
+                    }
+                }
+                if let eta {
+                    Text(eta)
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(limit.status.color.opacity(0.75))
                 }
             }
         }
