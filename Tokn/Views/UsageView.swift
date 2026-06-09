@@ -11,6 +11,7 @@ struct UsageView: View {
     let appModel: AppModel
     @State private var showSettings = false
     @State private var easterEggActive = false
+    @State private var history: [UsagePoint] = []
 
     var body: some View {
         Group {
@@ -26,6 +27,8 @@ struct UsageView: View {
         .frame(width: 280)
         .background(bg)
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignKeyNotification)) { _ in showSettings = false }
+        .onAppear { history = appModel.historyService.load() }
+        .onChange(of: appModel.usageData) { _, _ in history = appModel.historyService.load() }
     }
 
     // MARK: Main
@@ -64,7 +67,7 @@ struct UsageView: View {
             Spacer()
 
             // Native ProgressView when loading — always centred, never wobbles
-            Button { Task { await appModel.refresh(force: true) } } label: {
+            Button { Task { await appModel.refresh() } } label: {
                 Group {
                     if appModel.isLoading {
                         ProgressView().controlSize(.mini)
@@ -91,7 +94,6 @@ struct UsageView: View {
         } else if let error = appModel.errorMessage, appModel.usageData == nil {
             errorView(error)
         } else if let data = appModel.usageData {
-            let history = appModel.historyService.load()
             VStack(spacing: 8) {
                 UsageCard(icon: "timer",    title: "5h Session", limit: data.sessionUsage,
                           history: history.map(\.sessionPct))

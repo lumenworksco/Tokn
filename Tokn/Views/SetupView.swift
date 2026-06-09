@@ -6,7 +6,6 @@ struct SetupView: View {
     @State private var rawKey = ""
     @State private var isConnecting = false
     @State private var errorMessage: String?
-    @State private var appeared = false
 
     private let bg     = Color(red: 0.085, green: 0.085, blue: 0.11)
     private let cardBg = Color(white: 1, opacity: 0.055)
@@ -92,11 +91,6 @@ struct SetupView: View {
         }
         .frame(width: 280)
         .background(bg)
-        .opacity(appeared ? 1 : 0)
-        .offset(y: appeared ? 0 : 5)
-        .onAppear {
-            withAnimation(.spring(response: 0.42, dampingFraction: 0.84)) { appeared = true }
-        }
     }
 
     private func connect() {

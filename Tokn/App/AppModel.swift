@@ -33,7 +33,7 @@ final class AppModel {
         isSetupComplete = keychain.exists()
 
         if isSetupComplete {
-            Task { await refresh(force: true) }
+            Task { await refresh() }
             startRefreshLoop()
         }
 
@@ -45,7 +45,7 @@ final class AppModel {
         }
     }
 
-    func refresh(force: Bool = false) async {
+    func refresh() async {
         guard isSetupComplete else { usageData = nil; return }
         guard !isLoading else { return }
 
@@ -91,7 +91,7 @@ final class AppModel {
         try keychain.save(key.value)
         settings.cachedOrganizationId = orgId
         isSetupComplete = true
-        await refresh(force: true)
+        await refresh()
         startRefreshLoop()
     }
 
