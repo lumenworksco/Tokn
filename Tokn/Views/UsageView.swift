@@ -405,13 +405,26 @@ private struct SettingsPanel: View {
                     get: { appModel.settings.notificationsEnabled },
                     set: { appModel.settings.notificationsEnabled = $0 }
                 )) {
-                    Text("Alert at 80% and 100%")
+                    Text("Alert at \(appModel.settings.notificationThreshold)% and 100%")
                         .font(.system(size: 11, design: .monospaced))
                         .foregroundStyle(Color(white: 0.55))
                 }
                 .toggleStyle(.switch)
                 .controlSize(.mini)
-                .padding(.bottom, 14)
+                .padding(.bottom, appModel.settings.notificationsEnabled ? 8 : 14)
+
+                if appModel.settings.notificationsEnabled {
+                    Picker("", selection: Binding(
+                        get: { appModel.settings.notificationThreshold },
+                        set: { appModel.settings.notificationThreshold = $0 }
+                    )) {
+                        ForEach([50, 60, 70, 80, 90], id: \.self) { t in
+                            Text("\(t)%").tag(t)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .padding(.bottom, 14)
+                }
 
                 rowLabel("Startup")
                 Toggle(isOn: Binding(

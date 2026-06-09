@@ -77,7 +77,8 @@ final class AppModel {
                 }
             }
             if let data = usageData {
-                notificationService.check(data, enabled: settings.notificationsEnabled)
+                notificationService.check(data, enabled: settings.notificationsEnabled,
+                                          threshold: settings.notificationThreshold)
                 historyService.record(data)
             }
         } catch {

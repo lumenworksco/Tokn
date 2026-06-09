@@ -13,25 +13,25 @@ final class NotificationService {
             .requestAuthorization(options: [.alert, .sound])
     }
 
-    func check(_ data: UsageData, enabled: Bool) {
+    func check(_ data: UsageData, enabled: Bool, threshold: Int) {
         guard enabled else { return }
-        checkLimit(data.sessionUsage, name: "Session")
-        checkLimit(data.weeklyUsage,  name: "Weekly")
+        checkLimit(data.sessionUsage, name: "Session", threshold: threshold)
+        checkLimit(data.weeklyUsage,  name: "Weekly",  threshold: threshold)
     }
 
-    private func checkLimit(_ limit: UsageLimit, name: String) {
+    private func checkLimit(_ limit: UsageLimit, name: String, threshold: Int) {
         let pct = Int(limit.utilization)
-        let thresholds = [80, 100]
+        let thresholds = [threshold, 100]
 
-        for threshold in thresholds where pct >= threshold {
-            if (notifiedAt[name] ?? 0) < threshold {
-                notifiedAt[name] = threshold
-                send(name: name, threshold: threshold, pct: pct)
+        for t in thresholds where pct >= t {
+            if (notifiedAt[name] ?? 0) < t {
+                notifiedAt[name] = t
+                send(name: name, threshold: t, pct: pct)
             }
         }
 
-        // Reset when usage drops back below 75% so future spikes re-notify
-        if pct < 75 { notifiedAt[name] = 0 }
+        // Reset tracking when usage falls 5pp below the first threshold
+        if pct < max(threshold - 5, 0) { notifiedAt[name] = 0 }
     }
 
     private func send(name: String, threshold: Int, pct: Int) {
