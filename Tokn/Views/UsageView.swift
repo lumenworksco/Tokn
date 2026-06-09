@@ -216,6 +216,7 @@ private struct UsageCard: View {
     // Initialised from limit so the card never starts at 0 on (re-)appear
     @State private var displayed: Double
     @State private var fillFraction: Double
+    @State private var showHistory = false
 
     init(icon: String, title: String, limit: UsageLimit,
          history: [UsagePoint], pct: KeyPath<UsagePoint, Double>) {
@@ -260,10 +261,20 @@ private struct UsageCard: View {
             }
             .frame(height: 4)
 
-            // Sparkline — only shown once we have enough history
+            // Sparkline / history chart — tap to toggle between compact and full view
             if history.count >= 3 {
-                SparklineView(points: history.map { $0[keyPath: pct] }, color: limit.status.color)
-                    .frame(height: 22)
+                Group {
+                    if showHistory {
+                        HistoryChartView(points: history, pct: pct, color: limit.status.color)
+                    } else {
+                        SparklineView(points: history.map { $0[keyPath: pct] }, color: limit.status.color)
+                            .frame(height: 22)
+                    }
+                }
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.9)) { showHistory.toggle() }
+                }
             }
 
             // Reset + status row (ETA replaces reset time when limit is hit before the window resets)
@@ -330,6 +341,92 @@ private struct UsageCard: View {
         let denom = n * sumXX - sumX * sumX
         guard abs(denom) > 1e-9 else { return nil }
         return (n * sumXY - sumX * sumY) / denom
+    }
+}
+
+// MARK: - HistoryChartView
+
+private struct HistoryChartView: View {
+    let points: [UsagePoint]
+    let pct: KeyPath<UsagePoint, Double>
+    let color: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Canvas { ctx, size in
+                guard points.count >= 2,
+                      let first = points.first, let last = points.last else { return }
+                let timeSpan = last.date.timeIntervalSince(first.date)
+                guard timeSpan > 0 else { return }
+
+                let pts: [CGPoint] = points.map { pt in
+                    let x = CGFloat(pt.date.timeIntervalSince(first.date) / timeSpan) * size.width
+                    let y = size.height * CGFloat(1.0 - pt[keyPath: pct] / 100.0)
+                    return CGPoint(x: x, y: max(0, min(size.height, y)))
+                }
+
+                // Dashed threshold lines (orange = 50%, red = 80%)
+                for (fraction, lineColor): (CGFloat, Color) in [
+                    (0.80, Color(red: 1.0, green: 0.27, blue: 0.23)),
+                    (0.50, Color(red: 1.0, green: 0.62, blue: 0.04))
+                ] {
+                    let y = size.height * (1 - fraction)
+                    var p = Path()
+                    p.move(to: CGPoint(x: 0, y: y))
+                    p.addLine(to: CGPoint(x: size.width, y: y))
+                    ctx.stroke(p, with: .color(lineColor.opacity(0.35)),
+                               style: StrokeStyle(lineWidth: 1, dash: [3, 4]))
+                }
+
+                // Fill gradient beneath the line
+                var fillPath = Path()
+                if let fp = pts.first, let lp = pts.last {
+                    fillPath.move(to: CGPoint(x: fp.x, y: size.height))
+                    pts.forEach { fillPath.addLine(to: $0) }
+                    fillPath.addLine(to: CGPoint(x: lp.x, y: size.height))
+                    fillPath.closeSubpath()
+                }
+                ctx.fill(fillPath, with: .linearGradient(
+                    Gradient(colors: [color.opacity(0.22), color.opacity(0)]),
+                    startPoint: .zero, endPoint: CGPoint(x: 0, y: size.height)))
+
+                // Chart line
+                var chartLine = Path()
+                for (i, pt) in pts.enumerated() {
+                    i == 0 ? chartLine.move(to: pt) : chartLine.addLine(to: pt)
+                }
+                ctx.stroke(chartLine, with: .color(color.opacity(0.85)),
+                           style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
+
+                // Dot at current (rightmost) value
+                if let lastPt = pts.last {
+                    ctx.fill(Path(ellipseIn: CGRect(x: lastPt.x - 2.5, y: lastPt.y - 2.5,
+                                                    width: 5, height: 5)),
+                             with: .color(color))
+                }
+            }
+            .frame(height: 52)
+
+            // Time span: oldest recorded point → now
+            HStack {
+                Text(spanLabel)
+                    .font(.system(size: 9, design: .monospaced))
+                    .foregroundStyle(Color(white: 0.25))
+                Spacer()
+                Text("now")
+                    .font(.system(size: 9, design: .monospaced))
+                    .foregroundStyle(Color(white: 0.25))
+            }
+        }
+    }
+
+    private var spanLabel: String {
+        guard let first = points.first else { return "" }
+        let elapsed = Date().timeIntervalSince(first.date)
+        if elapsed < 3600 { return "\(max(1, Int(elapsed / 60)))m ago" }
+        let h = Int(elapsed / 3600)
+        let m = Int(elapsed.truncatingRemainder(dividingBy: 3600) / 60)
+        return m == 0 ? "\(h)h ago" : "\(h)h \(m)m ago"
     }
 }
 
