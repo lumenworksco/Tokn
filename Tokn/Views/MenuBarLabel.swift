@@ -15,7 +15,7 @@ struct MenuBarLabel: View {
             } else if appModel.isLoading {
                 ProgressView().controlSize(.mini).scaleEffect(0.7)
             } else {
-                Image(systemName: "clock.fill").font(.system(size: 12))
+                Image("MenuBarIcon")
             }
         }
     }

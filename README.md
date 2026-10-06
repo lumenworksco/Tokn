@@ -92,7 +92,7 @@ xcodebuild -project Tokn.xcodeproj -scheme Tokn -configuration Release \
   CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO
 ```
 
-To regenerate the app icon at all sizes:
+The app icon is exported from the design source (SVG master + iconset). The script below is the legacy generator and no longer reflects the current logo:
 
 ```bash
 swift scripts/generate_icons.swift
