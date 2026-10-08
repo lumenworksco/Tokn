@@ -98,8 +98,12 @@ struct UsageView: View {
             VStack(spacing: 8) {
                 UsageCard(icon: "timer",    title: "5h Session", limit: data.sessionUsage,
                           history: history, pct: \.sessionPct)
-                UsageCard(icon: "calendar", title: "Weekly",     limit: data.weeklyUsage,
-                          history: history, pct: \.weeklyPct)
+                if data.weeklyUsage.isExceeded {
+                    GameOverCard(limit: data.weeklyUsage)
+                } else {
+                    UsageCard(icon: "calendar", title: "Weekly",     limit: data.weeklyUsage,
+                              history: history, pct: \.weeklyPct)
+                }
             }
             .padding(10)
         } else {
@@ -201,6 +205,44 @@ struct UsageView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 9)
+    }
+}
+
+// MARK: - GameOverCard
+
+// Replaces the weekly card once the weekly limit is fully used.
+private struct GameOverCard: View {
+    let limit: UsageLimit
+    @State private var blink = false
+
+    private let red = Color(red: 1.0, green: 0.27, blue: 0.23)
+
+    var body: some View {
+        VStack(spacing: 6) {
+            Text("GAME OVER")
+                .font(.system(size: 20, weight: .heavy, design: .monospaced))
+                .foregroundStyle(red)
+                .kerning(2)
+                .shadow(color: red.opacity(0.6), radius: 6)
+            Text("weekly tokens: 0 lives left")
+                .font(.system(size: 10, design: .monospaced))
+                .foregroundStyle(Color(white: 0.5))
+            Text(limit.resetDescription.replacingOccurrences(of: "Resets", with: "continue?"))
+                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                .foregroundStyle(Color(white: 0.75))
+                .opacity(blink ? 1 : 0.3)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 11)
+        .padding(.vertical, 14)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(red.opacity(0.08))
+                .strokeBorder(red.opacity(0.4), lineWidth: 0.5)
+        )
+        .onAppear {
+            withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) { blink = true }
+        }
     }
 }
 
