@@ -6,7 +6,9 @@ struct MenuBarLabel: View {
 
     var body: some View {
         Group {
-            if let data = appModel.usageData {
+            if let data = appModel.usageData, data.weeklyUsage.isExceeded {
+                GameOverLabel()
+            } else if let data = appModel.usageData {
                 ColoredUsageLabel(
                     utilization: data.sessionUsage.utilization,
                     color: data.sessionUsage.status.color,
@@ -18,6 +20,42 @@ struct MenuBarLabel: View {
                 Image("MenuBarIcon")
             }
         }
+    }
+}
+
+// Shown in place of the usage label once the weekly limit is used up,
+// regardless of the chosen menu bar style.
+@MainActor
+private struct GameOverLabel: View {
+    @State private var rendered: NSImage?
+
+    var body: some View {
+        Group {
+            if let rendered {
+                Image(nsImage: rendered)
+            } else {
+                Text("GAME OVER").font(.system(size: 11, weight: .heavy, design: .monospaced))
+            }
+        }
+        .onAppear { render() }
+    }
+
+    private func render() {
+        let red = Color(red: 1.0, green: 0.27, blue: 0.23)
+        let r = ImageRenderer(content:
+            Text("☠ GAME OVER")
+                .font(.system(size: 11, weight: .heavy, design: .monospaced))
+                .foregroundStyle(red)
+                .fixedSize()
+        )
+        r.scale = 2
+        guard let cg = r.cgImage else { return }
+        let img = NSImage(
+            cgImage: cg,
+            size: NSSize(width: CGFloat(cg.width) / 2, height: CGFloat(cg.height) / 2)
+        )
+        img.isTemplate = false
+        rendered = img
     }
 }
 
